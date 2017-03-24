@@ -1,0 +1,27 @@
+sudo: required
+language: c++
+
+compiler:
+  - gcc
+  - clang
+
+os:
+  - linux
+  - osx
+
+addons:
+  apt:
+    packages:
+      - freeglut3-dev
+      - libxmu-dev
+      - libxi-dev
+
+script:
+  - mkdir build
+  - cd build
+  - cmake ..
+  - make
+  - sudo make install
+
+notifications:
+  email: false

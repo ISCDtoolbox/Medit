@@ -1,0 +1,532 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <assert.h>
+#include <string.h>
+
+#include "libmesh3.h"
+#include "medit.h"
+#include "extern.h"
+#include "sproto.h"
+
+
+/* save mesh to disk */
+int outmsh(pScene sc,pMesh mesh,char *fileout,ubyte clipon) {
+  LM_mesh_struct  ms;
+  pPoint     ppt,p1,p2,p3,p4;
+  pTetra     ptt;
+  pTriangle  pt1;
+  pQuad      pq1;
+  pEdge      pr;
+  pMaterial  pm;
+  float     *tv;
+  int       *te,*tmp,i,k,l,bin,np,ne,nn,nt,nq,nav,ver;
+  int        m,nridge,nrequis;
+  int        ncorner,prequis,nbpos,nbneg,nbnul,nedge;
+  char       vers[128];
+
+  if ( !LM_open_mesh(fileout, LM_WRITE, &ms, sm->dim) ) {
+    fprintf(stderr,"  ** UNABLE TO OPEN %s.\n",data);
+    return(0);
+  }
+  fprintf(stdout,"  %%%% %s OPENED\n",fileout);
+
+  /* compact vertices */
+  tabi = (int*)malloc(NPMAX * 4 * sizeof(int));
+  assert(tabi);
+  tabf = (float*)tabi;
+
+  if ( clipon )  markPt(mesh);
+
+  nbl = 0;
+  for(k=1; k<=mesh->np; k++) {
+    ppt = &mesh->point[k];
+    if ( ppt->tag & M_UNUSED )  continue;
+    iadr = nbl * 4;
+    tabf[ iadr + 0 ] = ppt->c[0];
+    tabf[ iadr + 1 ] = ppt->c[1];
+    tabf[ iadr + 2 ] = ppt->c[2];
+    tabi[ iadr + 3 ] = ppt->ref;
+    ++nbl;
+    if ( nbl == NPMAX ) {
+      LM_write_field(&ms, LM_Vertices, nbl, tabf);
+      nbl = 0;
+    }
+  }
+  LM_write_field(&ms, LM_Vertices, nbl, tabf);
+
+
+
+  for (k=1; k<=mesh->np; k++) {
+    ppt = &mesh->point[k];
+    if ( ppt->ttmp )
+    ppt->tmp = ++np;
+  }
+
+  
+  /* mark used faces */
+  if ( clipon ) {
+    for (k=1; k<=sm->nt; k++) {
+      pt1 = & sm->tria[k];
+      if ( !pt1->v[0] )  continue;
+      nbpos = nbneg = nbnul = 0;
+      for (l=0; l<3; l++) {
+        ppt = &sm->point[pt1->v[l]];
+        if ( ppt->clip == 2 )       nbpos++;
+        else if ( ppt->clip == 1 )  nbneg++;
+        else                        nbnul++;
+      }
+      if ( nbpos && nbpos+nbnul < 4 ) {
+        ++ne;
+        ++nt;
+        for (l=0; l<3; l++) {
+          ppt = &sm->point[pt1->v[l]];
+          tmp[pt1->v[l]] = 1;
+        }
+      }
+      else
+        pt1->v[0] = 0;
+    }
+    for (k=1; k<=sm->nq; k++) {
+      pq1 = & sm->quad[k];
+      if ( !pq1->v[0] )  continue;
+      nbpos = nbneg = nbnul = 0;
+      for (l=0; l<4; l++) {
+        ppt = &sm->point[pq1->v[l]];
+        if ( ppt->clip == 2 )       nbpos++;
+        else if ( ppt->clip == 1 )  nbneg++;
+        else                        nbnul++;
+      }
+      if ( nbpos && nbpos+nbnul < 5 ) {
+        ++ne;
+        ++nq;
+        for (l=0; l<4; l++) {
+          ppt = &sm->point[pq1->v[l]];
+          tmp[pq1->v[l]] = 1;
+        }
+      }
+      else
+        pq1->v[0] = 0;
+    }
+  }
+
+  else {
+    for (k=1; k<=sm->nt; k++) {
+      pt1 = &sm->tria[k];
+      if ( !pt1->v[0] )  continue;
+      m = matRef(sc,pt1->ref);
+      pm = &sc->material[m];
+      if ( pm->flag )  continue;
+      ++ne;
+      ++nt;
+      for (i=0; i<3; i++)  tmp[pt1->v[i]] = 1;
+    }
+    for (k=1; k<=sm->nq; k++) {
+      pq1 = &sm->quad[k];
+      if ( !pq1->v[0] )  continue;
+      m = matRef(sc,pq1->ref);
+      pm = &sc->material[m];
+      if ( pm->flag )  continue;
+      ++ne;
+      ++nq;
+      for (i=0; i<4; i++)  tmp[pq1->v[i]] = 1;
+    }
+    for (k=1; k<=sm->ntet; k++) {
+      ptt = &sm->tetra[k];
+      if ( !ptt->v[0] )  continue;
+      m = matRef(sc,ptt->ref);
+      pm = &sc->material[m];
+      if ( pm->flag )  continue;
+      ++ne;
+      for (i=0; i<4; i++)  tmp[ptt->v[i]] = 1;
+    }
+  }
+  if ( !ne ) {
+    fclose(out);
+    free(tmp);
+    return(1);
+  }
+
+  /* mark used vertices */
+  np = nav = 0;
+  ncorner = prequis = 0;
+  for (k=1; k<=sm->np; k++) {
+    ppt = &sm->point[k];
+    if ( !tmp[k] )  continue;
+    tmp[k] = ++np;
+    if ( ppt->tag == M_NOTAG )  nav++;
+  }
+
+  /* mesh vertices */
+  np = 0;
+  if ( sm->dim == 3 ) {
+    te = (int*)malloc(4*(sm->np+1)*sizeof(int));
+    tv = (float*)te;
+    if ( te ) {
+      for (k=1; k<=sm->np; k++) {
+        if ( !tmp[k] )  continue;
+        ppt = & sm->point[k];
+        tv[np*4+0] = ppt->x + sm->xtra;
+        tv[np*4+1] = ppt->y + sm->ytra;
+        tv[np*4+2] = ppt->z + sm->ztra;
+        te[np*4+3] = (int)ppt->ref;
+        np++;
+        if ( ppt->tag & M_CORNER )   ncorner++;
+        if ( ppt->tag & M_REQUIRED ) prequis++;
+      }
+      ecrire_bloc(out,te,np,Vertices,4,"%g %g %g %d\n");
+      free(te);
+    }
+    else {
+      if ( !bin )  formater(out);
+      ecrire_commentaire(out,"Set of mesh vertices");
+      ecrire_mot_clef(out,Vertices);
+      ecrire_int(out,np);
+      if ( !bin )  formater(out);
+      for (k=1; k<=sm->np; k++) {
+        if ( !tmp[k] )  continue;
+        ppt = & sm->point[k];
+        np++;
+        ecrire_reel(out,ppt->x);
+        ecrire_reel(out,ppt->y);
+        ecrire_reel(out,ppt->z);
+        ecrire_int(out,(int)ppt->ref);
+        if ( !bin )  formater(out);
+        if ( ppt->tag & M_CORNER )   ncorner++;
+        if ( ppt->tag & M_REQUIRED ) prequis++;
+      }
+    }
+  }
+  else {
+    te = (int*)malloc(3*sm->np*sizeof(int));
+    tv = (float*)te;
+    if ( tv ) {
+      for (k=1; k<=sm->np; k++) {
+        if ( !tmp[k] )  continue;
+        ppt = & sm->point[k];
+        tv[np*3+0] = ppt->x;
+        tv[np*3+1] = ppt->y;
+        te[np*3+2] = (int)ppt->ref;
+        if ( ppt->tag & M_CORNER )   ncorner++;
+        if ( ppt->tag & M_REQUIRED ) prequis++;
+        np++;
+      }
+      ecrire_bloc(out,te,np,Vertices,3,"%g %g %d\n");
+      free(te);
+    }
+    else {
+      if ( !bin )  formater(out);
+      ecrire_commentaire(out,"Set of mesh vertices");
+      ecrire_mot_clef(out,Vertices);
+      ecrire_int(out,np);
+      if ( !bin )  formater(out);
+      for (k=1; k<=sm->np; k++) {
+        if ( !tmp[k] )  continue;
+        ppt = & sm->point[k];
+        ecrire_reel(out,ppt->x);
+        ecrire_reel(out,ppt->y);
+        ecrire_int(out,(int)ppt->ref);
+        if ( !bin )  formater(out);
+        if ( ppt->tag & M_CORNER )   ncorner++;
+        if ( ppt->tag & M_REQUIRED ) prequis++;
+      }
+    }
+  }
+
+  /* mesh triangles */
+  if ( !bin )  formater(out);
+  nridge = nrequis = nn = 0;
+  te = (int*)malloc((4*sm->nt+1)*sizeof(int));
+  if ( te ) {
+    ne = 0;
+    for (k=1; k<=sm->nt; k++) {
+      pt1 = &sm->tria[k];
+      if ( !pt1->v[0] ) continue;
+      m = matRef(sc,pt1->ref);
+      /*m  = !pt1->ref ? DEFAULT_MAT : 1+(pt1->ref-1)%(sc->par.nbmat-1);*/
+      pm = &sc->material[m];
+      if ( pm->flag )  continue;
+      te[ne++] = tmp[pt1->v[0]];
+      te[ne++] = tmp[pt1->v[1]];
+      te[ne++] = tmp[pt1->v[2]];
+      te[ne++] = (int)pt1->ref;
+    }
+    ne /= 4;
+    ecrire_bloc(out,te,ne,Triangles,4,"%d %d %d %d\n");
+    free(te);
+  }
+  else {
+    if ( !bin )  formater(out);
+    ecrire_commentaire(out,"Set of mesh triangles (v1,v2,v3,tag)");
+    ecrire_mot_clef(out,Triangles);
+    ecrire_int(out,nt);
+    if ( !bin )  formater(out);
+    for (k=1; k<=sm->nt; k++) {
+      pt1 = &sm->tria[k];
+      if ( !pt1->v[0] ) continue;
+      m = matRef(sc,pt1->ref);
+      /*m  = !pt1->ref ? DEFAULT_MAT : 1+(pt1->ref-1)%(sc->par.nbmat-1);*/
+      pm = &sc->material[m];
+      if ( pm->flag )  continue;
+      if ( !tmp[pt1->v[0]] || !tmp[pt1->v[1]] || !tmp[pt1->v[2]] )
+        continue;
+      ecrire_int(out,tmp[pt1->v[0]]);
+      ecrire_int(out,tmp[pt1->v[1]]);
+      ecrire_int(out,tmp[pt1->v[2]]);
+      ecrire_int(out,(int)pt1->ref);
+      if ( !bin )  formater(out);
+    }
+  }
+
+  /* mesh quads */
+  if ( !bin )  formater(out);
+  te = (int*)malloc((5*sm->nq+1)*sizeof(int));
+  if ( te ) {
+    ne = 0;
+    for (k=1; k<=sm->nq; k++) {
+      pq1 = &sm->quad[k];
+      if ( !pq1->v[0] ) continue;
+      m = matRef(sc,pq1->ref);
+      /*m  = !pt1->ref ? DEFAULT_MAT : 1+(pt1->ref-1)%(sc->par.nbmat-1);*/
+      pm = &sc->material[m];
+      if ( pm->flag )  continue;
+      p1 = &sm->point[pq1->v[0]];
+      p2 = &sm->point[pq1->v[1]];
+      p3 = &sm->point[pq1->v[2]];
+      p4 = &sm->point[pq1->v[3]];
+      if ( !tmp[pq1->v[0]] || !tmp[pq1->v[1]] || !tmp[pq1->v[2]] || !tmp[pq1->v[3]] )
+        continue;
+
+      te[ne++] = tmp[pq1->v[0]];
+      te[ne++] = tmp[pq1->v[1]];
+      te[ne++] = tmp[pq1->v[2]];
+      te[ne++] = tmp[pq1->v[3]];
+      te[ne++] = (int)pq1->ref;
+    }
+    ne /= 5;
+    ecrire_bloc(out,te,ne,Quadrilaterals,5,"%d %d %d %d %d\n");
+    free(te);
+  }
+  else {
+    if ( !bin )  formater(out);
+    ecrire_commentaire(out,"Set of mesh quads (v1,v2,v3,v4,tag)");
+    ecrire_mot_clef(out,Quadrilaterals);
+    ecrire_int(out,nq);
+    if ( !bin )  formater(out);
+    for (k=1; k<=sm->nq; k++) {
+      pq1 = &sm->quad[k];
+      if ( !pq1->v[0] ) continue;
+      m = matRef(sc,pq1->ref);
+      /*m  = !pt1->ref ? DEFAULT_MAT : 1+(pt1->ref-1)%(sc->par.nbmat-1);*/
+      pm = &sc->material[m];
+      if ( pm->flag )  continue;
+      p1 = &sm->point[pq1->v[0]];
+      p2 = &sm->point[pq1->v[1]];
+      p3 = &sm->point[pq1->v[2]];
+      p4 = &sm->point[pq1->v[3]];
+      if ( !tmp[pq1->v[0]] || !tmp[pq1->v[1]] || !tmp[pq1->v[2]] || !tmp[pq1->v[3]] )
+        continue;
+      ecrire_int(out,tmp[pq1->v[0]]);
+      ecrire_int(out,tmp[pq1->v[1]]);
+      ecrire_int(out,tmp[pq1->v[2]]);
+      ecrire_int(out,tmp[pq1->v[3]]);
+      ecrire_int(out,(int)pq1->ref);
+      if ( !bin )  formater(out);
+    }
+  }
+
+  /* corners */
+  te = (int*)malloc(3*(sm->np+1)*sizeof(int));
+  if ( ncorner ) {
+    if ( te ) {
+      ncorner = 0;
+      for (k=1; k<=sm->np; k++) {
+        ppt = &sm->point[k];
+        if ( !tmp[k] )  continue;
+        else if ( ppt->tag & M_CORNER ) 
+          te[ncorner++] = tmp[k];
+      }
+      ecrire_bloc(out,te,ncorner,Corners,1,"%d\n");
+    }
+    else {
+      if ( !bin )  formater(out);
+      ecrire_commentaire(out,"Set of corners");
+      ecrire_mot_clef(out,Corners);
+      ecrire_int(out,ncorner);
+      if ( !bin )  formater(out);
+      for (k=1; k<=sm->np; k++) {
+        ppt = &sm->point[k];
+        if ( !tmp[k] )  continue;
+        else if ( ppt->tag & M_CORNER ) {
+	  ecrire_int(out,tmp[k]);
+	  if ( !bin )  formater(out);
+        }
+      }
+    }
+  }
+  
+  /* required vertices */
+  if ( prequis ) {
+    if ( te ) {
+      prequis = 0;
+      for (k=1; k<=sm->np; k++) {
+        ppt = &sm->point[k];
+        if ( !tmp[k] )  continue;
+        else if ( ppt->tag & M_REQUIRED )
+	  te[prequis++] = tmp[k];
+      }
+      ecrire_bloc(out,te,prequis,RequiredVertices,1,"%d\n");
+    }
+    else {
+      if ( !bin )  formater(out);
+      ecrire_commentaire(out,"Set of required vertices");
+      ecrire_mot_clef(out,RequiredVertices);
+      ecrire_int(out,prequis);
+      if ( !bin )  formater(out);
+      for (k=1; k<=sm->np; k++) {
+        ppt = &sm->point[k];
+        if ( !tmp[k] )  continue;
+        else if ( ppt->tag & M_REQUIRED ) {
+	  ecrire_int(out,tmp[k]);
+	  if ( !bin )  formater(out);
+        }
+      }
+    }
+  }
+  if ( te )  free(te);
+  
+  /* edges */
+  nedge = 0;
+  for (k=1; k<=sm->na; k++) {
+    pr = &sm->edge[k];
+    p1 = &sm->point[pr->v[0]];
+    p2 = &sm->point[pr->v[1]];
+    if ( !tmp[pr->v[0]] || !tmp[pr->v[1]] )  continue;
+    ++nedge;
+  }
+  if ( nedge ) {
+    te = (int*)malloc(3*(sm->na+1)*sizeof(int));
+    nridge = nrequis = 0;
+    if ( te ) {
+      nedge = 0;
+      for (k=1; k<=sm->na; k++) {
+        pr = &sm->edge[k];
+        p1 = &sm->point[pr->v[0]];
+        p2 = &sm->point[pr->v[1]];
+        if ( !tmp[pr->v[0]] || !tmp[pr->v[1]] )  continue;
+
+        te[nedge++] = tmp[pr->v[0]];
+        te[nedge++] = tmp[pr->v[1]];
+        te[nedge++] = pr->tag;
+        if ( pr->tag & M_RIDGE )    nridge++;
+        if ( pr->tag & M_REQUIRED)  nrequis++;
+      }
+      nedge /= 3;
+      ecrire_bloc(out,te,nedge,Edges,3,"%d %d %d\n");
+    }
+    else {
+      if ( !bin )  formater(out);
+      ecrire_commentaire(out,"Set of mesh edges (v1,v2,tag)");
+      ecrire_mot_clef(out,Edges);
+      ecrire_int(out,nedge);
+      if ( !bin )  formater(out);
+      for (k=1; k<=sm->na; k++) {
+        pr = &sm->edge[k];
+        p1 = &sm->point[pr->v[0]];
+        p2 = &sm->point[pr->v[1]];
+        if ( !tmp[pr->v[0]] || !tmp[pr->v[1]] )  continue;
+	ecrire_int(out,tmp[pr->v[0]]);
+	ecrire_int(out,tmp[pr->v[1]]);
+	ecrire_int(out,pr->tag);
+	if ( !bin )  formater(out);
+      }
+    }
+
+    /* ridges */
+    if ( nridge ) {
+      if ( te ) {
+        nridge = nedge = 0;
+        for (k=1; k<=sm->na; k++) {
+          pr = &sm->edge[k];
+          p1 = &sm->point[pr->v[0]];
+          p2 = &sm->point[pr->v[1]];
+          if ( !tmp[pr->v[0]] || !tmp[pr->v[1]] )  continue;
+          ++nedge;
+          if ( pr->tag & M_RIDGE )
+            te[nridge++] = nedge;
+        }
+        ecrire_bloc(out,te,nridge,Ridges,1,"%d\n");
+      }
+      else {
+	if ( !bin )  formater(out);
+	ecrire_commentaire(out,"Set of ridges (iv,tag)");
+	ecrire_mot_clef(out,Ridges);
+	ecrire_int(out,nridge);
+	if ( !bin )  formater(out);
+	nridge = nedge = 0;
+	for (k=1; k<=sm->na; k++) {
+          pr = &sm->edge[k];
+          p1 = &sm->point[pr->v[0]];
+          p2 = &sm->point[pr->v[1]];
+          if ( !tmp[pr->v[0]] || !tmp[pr->v[1]] )  continue;
+          ++nedge;
+          if ( pr->tag & M_RIDGE ) {
+	    ecrire_int(out,nedge);
+	    if ( !bin )  formater(out);
+	  }
+        }
+      }
+    }
+
+    /* required edges */
+    if ( nrequis ) {
+      if ( te ) {
+        nrequis = nedge = 0;
+        for (k=1; k<=sm->na; k++) {
+          pr = &sm->edge[k];
+          p1 = &sm->point[pr->v[0]];
+          p2 = &sm->point[pr->v[1]];
+          if ( !tmp[pr->v[0]] || !tmp[pr->v[1]] )  continue;
+          ++nedge;
+          if ( pr->tag & M_REQUIRED )
+            te[nrequis++] = nedge;
+        }
+        ecrire_bloc(out,te,nrequis,RequiredEdges,1,"%d\n");
+      }
+      else {
+	if ( !bin )  formater(out);
+	ecrire_commentaire(out,"Set of required edges (iv,tag)");
+	ecrire_mot_clef(out,RequiredEdges);
+	ecrire_int(out,nrequis);
+	if ( !bin )  formater(out);
+	nridge = nedge = 0;
+	for (k=1; k<=sm->na; k++) {
+          pr = &sm->edge[k];
+          p1 = &sm->point[pr->v[0]];
+          p2 = &sm->point[pr->v[1]];
+          if ( !tmp[pr->v[0]] || !tmp[pr->v[1]] )  continue;
+          ++nedge;
+          if ( pr->tag & M_REQUIRED ) {
+	    ecrire_int(out,nedge);
+	    if ( !bin )  formater(out);
+	  }
+        }
+      }
+    }
+    if ( te )  free(te);
+  }
+  ecrire_mot_clef(out,End);
+  fclose(out);
+  free(tmp);
+  
+  if ( !quiet ) {
+    fprintf(stdout,"    Vertices   %8d",sm->np);
+    fprintf(stdout,"  Corners  %d",ncorner);
+    fprintf(stdout,"  Required %d\n",prequis);
+    fprintf(stdout,"    Edges      %8d",nedge);
+    fprintf(stdout,"  Ridges   %d",nridge);
+    fprintf(stdout,"  Required %d\n",nrequis);
+    if ( sm->ne )  fprintf(stdout,"    Triangles  %8d  Quads   %8d\n",nt,nq);
+  }
+
+  return(1);
+}

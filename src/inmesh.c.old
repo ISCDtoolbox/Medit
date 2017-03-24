@@ -1,0 +1,509 @@
+/* 
+ *  mesh file format reader/manipulator.
+ *
+ *  Written by Pascal J. Frey, 1998, 1999.
+ *  email: Pascal.Frey@inria.fr
+*/
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <assert.h>
+#include <string.h>
+
+#include "libmesh3.h"
+#include "medit.h"
+#include "extern.h"
+#include "sproto.h"
+
+
+#define NPMAX   10000
+#define NEMAX   50000
+
+
+int inmesh(pMesh mesh) {
+  LM_mesh_struct  ms;
+  pPoint      ppt;
+  pEdge       pr;
+  pTriangle   pt;
+  pQuad       pq;
+  pTetra      ptet;
+  pHexa       ph;
+  double      d;
+  float      *tabf,*n;
+  int        *tabi,nbl,iadr,is,k,l,disc,nn,nt,nq;
+  char       *ptr,data[256];
+
+  /* default */
+  strcpy(myerror.procname,"inmesh");
+  strcpy(data,mesh->name);
+  ptr = strstr(data,".mesh");
+  if ( !ptr ) {
+    strcat(data,".meshb");
+    if( !LM_open_mesh(data, LM_READ, &ms) ) {
+      ptr = strstr(data,".mesh");
+      *ptr = '\0';
+      strcat(data,".mesh");
+      if( !LM_open_mesh(data, LM_READ, &ms) ) {
+        prierr(ERR,0001);
+        return(-1);
+      }
+    }
+  }
+  else if( !LM_open_mesh(data, LM_READ, &ms) ) {
+    prierr(ERR,0001);
+    return(-1);
+  }	
+  if ( !quiet )  fprintf(stdout,"  Reading %s\n",data);
+
+  /* parse keywords */
+  mesh->dim  = ms.dimension;
+  mesh->np   = ms.kw_counters[ LM_Vertices ];
+  mesh->nt   = ms.kw_counters[ LM_Triangles ];
+  mesh->nq   = ms.kw_counters[ LM_Quadrilaterals ];
+  mesh->ntet = ms.kw_counters[ LM_Tetrahedra ];
+  mesh->nhex = ms.kw_counters[ LM_Hexahedra ];
+  mesh->na   = ms.kw_counters[ LM_Edges];
+  mesh->nvn  = ms.kw_counters[ LM_Normals ];
+  mesh->ntg  = ms.kw_counters[ LM_Tangents ];
+
+  mesh->ne = mesh->nt + mesh->nq + mesh->ntet + mesh->nhex;
+
+  /* check space dimension */
+  if ( mesh->dim < 2 || mesh->dim > 3 ) {
+    myerror.inderr[0] = mesh->dim;
+    prierr(ERR,0003);
+    LM_close_mesh(&ms);
+    return(-1);
+  }
+  /* check if vertices and elements found */
+  if ( !mesh->np ) {
+    prierr(ERR,0002);
+    LM_close_mesh(&ms);
+    return(-1);
+  }
+
+  /* memory allocation for mesh */
+  if ( !zaldy1(mesh) ) {
+    LM_close_mesh(&ms);
+    return(-1);
+  }
+  strcpy(myerror.procname,"inmesh");
+
+  /* mesh vertices */
+  disc = 0 ;
+  tabi = (int*)malloc(NPMAX * 5 * sizeof(int));
+  assert(tabi);
+  tabf = (float*)tabi;
+
+  mesh->np = 0;
+  while ( nbl = LM_read_field(&ms, LM_Vertices, NPMAX, tabi) ) {
+    for (k=0; k<nbl; k++) {
+      ++mesh->np;
+      ppt = &mesh->point[mesh->np];
+      iadr      = k * 4;        
+      ppt->x = tabf[ iadr + 0 ];
+      ppt->y = tabf[ iadr + 1 ];
+      if ( mesh->dim == 3 ) {
+	    ppt->z = tabf[ iadr + 2 ];
+        ppt->ref  = tabi[ iadr + 3 ] & 0x7fff;
+      }
+	  else
+	    ppt->ref  = tabi[ iadr + 2 ] & 0x7fff;
+	  ppt->tag  = M_UNUSED;
+    }
+  }
+
+  /* mesh triangles */
+  mesh->nt = 0;
+  while ( nbl = LM_read_field(&ms, LM_Triangles, NPMAX, tabi) ) {
+    for (k=0; k<nbl; k++) {
+      ++mesh->nt;
+      pt = &mesh->tria[mesh->nt];
+      iadr      = k * 4;
+      pt->v[0] = tabi[ iadr + 0 ];
+      pt->v[1] = tabi[ iadr + 1 ];
+      pt->v[2] = tabi[ iadr + 2 ];
+      pt->ref  = tabi[ iadr + 3 ] & 0x7fff;
+	  for (l=0; l<3; l++)
+	    if ( pt->v[l] < 1 || pt->v[l] > mesh->np ) {
+		  disc++;
+		  pt->v[0] = 0;
+		  break;
+		}
+		else {
+		  ppt = &mesh->point[pt->v[l]];
+		  ppt->tag &= ~M_UNUSED;
+		}
+    }
+  }
+
+  /* mesh quadrilaterals */
+  mesh->nq = 0;
+  while ( nbl = LM_read_field(&ms, LM_Quadrilaterals, NPMAX, tabi) ) {
+	for (k=0; k<nbl; k++) {
+      ++mesh->nq;
+      pq = &mesh->quad[mesh->nq];
+      iadr      = k * 5;
+      pq->v[0] = tabi[ iadr + 0 ];
+      pq->v[1] = tabi[ iadr + 1 ];
+      pq->v[2] = tabi[ iadr + 2 ];
+      pq->v[3] = tabi[ iadr + 3 ];
+      pq->ref  = tabi[ iadr + 4 ] & 0x7fff;
+	  for (l=0; l<4; l++)
+	    if ( pq->v[l] < 1 || pq->v[l] > mesh->np ) {
+		  disc++;
+		  pq->v[0] = 0;
+		  break;
+		}
+		else {
+		  ppt = &mesh->point[pq->v[l]];
+		  ppt->tag &= ~M_UNUSED;
+		}
+    }
+  }
+  free(tabi);
+
+  /* mesh tetrahedra */
+  tabi = (int*)malloc(NEMAX * 9 * sizeof(int));
+  assert(tabi);
+
+  mesh->ntet = 0;
+  while ( nbl = LM_read_field(&ms, LM_Tetrahedra, NEMAX, tabi) ) {
+    for(k=0; k<nbl; k++) {
+      ++mesh->ntet;
+      ptet = &mesh->tetra[mesh->ntet];
+      iadr     = k * 5;
+      ptet->v[0] = tabi[ iadr + 0 ];
+      ptet->v[1] = tabi[ iadr + 1 ];
+      ptet->v[2] = tabi[ iadr + 2 ];
+      ptet->v[3] = tabi[ iadr + 3 ];
+      ptet->ref  = tabi[ iadr + 4 ] & 0x7fff;
+	  for (l=0; l<4; l++)
+	    if ( ptet->v[l] < 1 || ptet->v[l] > mesh->np ) {
+		  disc++;
+		  ptet->v[0] = 0;
+		  break;
+		}
+		else {
+		  ppt = &mesh->point[ptet->v[l]];
+		  ppt->tag &= ~M_UNUSED;
+		}
+    }
+  }
+
+  /* mesh hexahedra */
+  mesh->nhex = 0;
+  while ( nbl = LM_read_field(&ms, LM_Hexahedra, NEMAX, tabi) ) {
+    for(k=0; k<nbl; k++) {
+      ++mesh->nhex;
+      ph = &mesh->hexa[mesh->nhex];
+      iadr     = k * 9;
+	  for (l=0; l<8; l++)
+        ph->v[l] = tabi[ iadr + l ];
+      ph->ref  = tabi[ iadr + 8 ] & 0x7fff;
+	  for (l=0; l<8; l++)
+	    if ( ph->v[l] < 1 || ph->v[l] > mesh->np ) {
+		  disc++;
+		  ph->v[0] = 0;
+		  break;
+		}
+		else {
+		  ppt = &mesh->point[ph->v[l]];
+		  ppt->tag &= ~M_UNUSED;
+		}
+    }
+  }
+  free(tabi);
+
+  /* mesh corners */
+  tabi = (int*)malloc(NPMAX * 4 * sizeof(int));
+  assert(tabi);
+
+  mesh->nc = 0;
+  while ( nbl = LM_read_field(&ms, LM_Corners, NPMAX, tabi) ) {
+    for(k=0; k<nbl; k++) {
+	  is   = tabi[ k ];
+	  if ( is < 0 || is > mesh->np ) {
+        disc++;
+      }
+	  else {
+        ++mesh->nc;
+	    ppt = &mesh->point[is];
+	    ppt->tag |= M_CORNER;
+        ppt->tag &= ~M_UNUSED;
+      }
+	}
+  }
+
+  /* required vertices */
+  mesh->nr = 0;
+  while ( nbl = LM_read_field(&ms, LM_RequiredVertices, NPMAX, tabi) ) {
+    for(k=0; k<nbl; k++) {
+	  is   = tabi[ k ];
+	  if ( is < 0 || is > mesh->np ) {
+        disc++;
+      }
+	  else {
+        ++mesh->nr;
+  	    ppt = &mesh->point[is];
+	    ppt->tag |= M_REQUIRED;
+        ppt->tag &= ~M_UNUSED;
+      }
+	}
+  }
+
+  /*mesh edges */
+  mesh->na = 0;
+  while ( nbl = LM_read_field(&ms, LM_Edges, NPMAX, tabi) ) {
+    for(k=0; k<nbl; k++) {
+	  mesh->na++;
+	  pr = &mesh->edge[ mesh->na ];
+	  iadr  = k * 3;
+	  pr->v[0] = tabi[ iadr + 0 ];
+	  pr->v[1] = tabi[ iadr + 1 ];
+	  pr->ref  = tabi[ iadr + 2 ] & 0x7fff;
+      pr->tag  = !pr->ref ? M_NOTAG : M_TAG;
+	  for (l=0; l<2; l++)
+  	    if ( pr->v[l] < 0 || pr->v[l] > mesh->np ) {
+          disc++;
+		  mesh->na--;
+		  break;
+        }
+		else {
+		  ppt = &mesh->point[ pr->v[l] ];
+		  ppt->tag &= ~M_UNUSED;
+		}
+    }
+  }
+
+  /* mesh ridges */
+  mesh->nri = 0;
+  while ( nbl = LM_read_field(&ms, LM_Ridges, NPMAX, tabi) ) {
+    for(k=0; k<nbl; k++) {
+	  is = tabi[ k];
+	  if ( is < 1 || is > mesh->na ) {
+	    disc++;
+	  }
+	  else {
+	    ++mesh->nri;
+	    pr = &mesh->edge[is];
+	    pr->tag |= M_RIDGE;
+	  }
+	} 
+  }
+
+  /* required edges */
+  mesh->nre = 0;
+  while ( nbl = LM_read_field(&ms, LM_RequiredEdges, NPMAX, tabi) ) {
+    for(k=0; k<nbl; k++) {
+	  is = tabi[ k];
+	  if ( is < 1 || is > mesh->na ) {
+	    disc++;
+	  }
+	  else {
+	    ++mesh->nre;
+	    pr = &mesh->edge[is];
+	    pr->tag |= M_REQUIRED;
+	  }
+	} 
+  }
+
+  /* mesh normals */
+  tabf = (float*)tabi;
+  mesh->nvn = 0;
+  while ( nbl = LM_read_field(&ms, LM_Normals, NPMAX, tabf) ) {
+    for(k=0; k<nbl; k++) {
+	  mesh->nvn++;
+      n = &mesh->extra->n[ 3*(mesh->nvn-1) + 1 ];
+	  iadr = 3 * k;
+	  n[0] = tabf[ iadr + 0 ];
+      n[1] = tabf[ iadr + 1 ];
+      n[2] = tabf[ iadr + 2 ];
+	  d = n[0]*n[0] + n[1]*n[1] + n[2]*n[2];
+      if ( d > 0.0 ) {
+        d = 1.0 / sqrt(d);
+	    n[0] *= d;
+        n[1] *= d;
+		n[2] *= d;
+	  }
+    }
+  }
+
+  if ( mesh->nvn ) {
+    mesh->extra->iv = ms.kw_counters[ LM_NormalAtVertices ];
+    mesh->extra->nv = (int*)M_calloc(mesh->np+1,sizeof(int),"inmesh");
+	assert(mesh->extra->nv);
+
+    /* normals at vertices */
+	mesh->extra->iv = 0;
+    while ( nbl = LM_read_field(&ms, LM_NormalAtVertices, NPMAX, tabi) ) {
+      for(k=0; k<nbl; k++) {
+		iadr = k * 2;
+        nn   = tabi[ iadr + 0 ];
+		is   = tabi[ iadr + 1 ];
+		if ( nn < 1 || nn > mesh->np ) {
+		  disc++;
+		}
+		else if ( is < 1 || is > mesh->nvn ) {
+		  disc++;
+		}
+		else {
+	      mesh->extra->iv++;
+		  mesh->extra->nv[nn] = is;
+		}
+      }
+	}
+
+	/*normals at triangle vertices */
+	mesh->extra->it = ms.kw_counters[ LM_NormalAtTriangleVertices ];
+    mesh->extra->nt = (int*)M_calloc(3*mesh->nt+1,sizeof(int),"inmesh");
+	assert(mesh->extra->nt);
+
+	mesh->extra->it = 0;
+    while ( nbl = LM_read_field(&ms, LM_NormalAtTriangleVertices, NPMAX, tabi) ) {
+      for(k=0; k<nbl; k++) {
+		iadr = k * 3;
+        nt   = tabi[ iadr + 0 ];
+		is   = tabi[ iadr + 1 ];
+		nn   = tabi[ iadr + 2 ];
+		if ( nt < 1 || nt > mesh->nt ) {
+		  disc++;
+		}
+		else if ( is < 1 || is > 3 ) {
+		  disc++;
+		}
+		else if ( nn < 1 || nn > mesh->nvn ) {
+		  disc++;
+		}
+		else {
+		  iadr = 3*(nt-1) + is;
+		  mesh->extra->nt[ iadr ] = nn;
+  	      mesh->extra->it++;
+		}
+      }
+	}
+	
+	/*normals at quadrilateral vertices */
+	mesh->extra->iq = ms.kw_counters[ LM_NormalAtQuadrilateralVertices ];
+    mesh->extra->nq = (int*)M_calloc(3*mesh->nt+1,sizeof(int),"inmesh");
+	assert(mesh->extra->nq);
+
+	mesh->extra->iq = 0;
+    while ( nbl = LM_read_field(&ms, LM_NormalAtQuadrilateralVertices, NPMAX, tabi) ) {
+      for(k=0; k<nbl; k++) {
+		iadr = k * 3;
+        nq   = tabi[ iadr + 0 ];
+		is   = tabi[ iadr + 1 ];
+		nn   = tabi[ iadr + 2 ];
+		if ( nq < 1 || nq > mesh->nq ) {
+		  disc++;
+		}
+		else if ( is < 1 || is > 4 ) {
+		  disc++;
+		}
+		else if ( nn < 1 || nn > mesh->nvn ) {
+		  disc++;
+		}
+		else {
+		  iadr = 3*(nq-1) + is;
+		  mesh->extra->nq[ iadr ] = nn;
+  	      mesh->extra->iq++;
+		}
+      }
+	}
+  }
+
+  /*mesh tangents */
+  if ( mesh->ntg ) { 
+    mesh->ntg = 0;
+    while ( nbl = LM_read_field(&ms, LM_Tangents, NPMAX, tabf) ) {
+      for(k=0; k<nbl; k++) {
+	    mesh->ntg++;
+        n = &mesh->extra->t[ 3*(mesh->ntg-1) + 1 ];
+	    iadr = 3 * k;
+	    n[0] = tabf[ iadr + 0 ];
+        n[1] = tabf[ iadr + 1 ];
+        n[2] = tabf[ iadr + 2 ];
+	    d = n[0]*n[0] + n[1]*n[1] + n[2]*n[2];
+        if ( d > 0.0 ) {
+          d = 1.0 / sqrt(d);
+	      n[0] *= d;
+          n[1] *= d;
+		  n[2] *= d;
+	    }
+      }
+    }
+
+    /*tangents at vertices */
+    mesh->extra->jv = ms.kw_counters[ LM_TangentAtVertices ];
+    mesh->extra->tv = (int*)M_calloc(mesh->np+1,sizeof(int),"inmesh");
+	assert(mesh->extra->tv);
+
+	mesh->extra->jv = 0;
+    while ( nbl = LM_read_field(&ms, LM_TangentAtVertices, NPMAX, tabi) ) {
+      for(k=0; k<nbl; k++) {
+		iadr = k * 2;
+        nn   = tabi[ iadr + 0 ];
+		is   = tabi[ iadr + 1 ];
+		if ( nn < 1 || nn > mesh->np ) {
+		  disc++;
+		}
+		else if ( is < 1 || is > mesh->ntg ) {
+		  disc++;
+		}
+		else {
+	      mesh->extra->jv++;
+		  mesh->extra->tv[nn] = is;
+		}
+      }
+	}
+	
+	/*tangent at edge vertices */
+	mesh->extra->je = ms.kw_counters[ LM_TangentAtEdgeVertices ];
+    mesh->extra->te = (int*)M_calloc(2*mesh->na+1,sizeof(int),"inmesh");
+	assert(mesh->extra->te);
+
+	mesh->extra->je = 0;
+    while ( nbl = LM_read_field(&ms, LM_TangentAtEdgeVertices, NPMAX, tabi) ) {
+      for(k=0; k<nbl; k++) {
+		iadr = k * 3;
+        nt   = tabi[ iadr + 0 ];
+		is   = tabi[ iadr + 1 ];
+		nn   = tabi[ iadr + 2 ];
+		if ( nt < 1 || nt > mesh->na ) {
+		  disc++;
+		}
+		else if ( is < 1 || is > 2 ) {
+		  disc++;
+		}
+		else if ( nn < 1 || nn > mesh->ntg ) {
+		  disc++;
+		}
+		else {
+		  iadr = 3*(nt-1) + is;
+		  mesh->extra->te[ iadr ] = nn;
+  	      mesh->extra->je++;
+		}
+      }
+	}
+	
+  }
+
+  LM_close_mesh(&ms);
+  if ( disc > 0 ) {
+    strcpy(myerror.procname,"inmesh");
+    myerror.inderr[0] = disc;
+    prierr(WAR,0022);
+  }
+
+  return(1);
+}
+
+
+#ifdef __cplusplus
+}
+#endif

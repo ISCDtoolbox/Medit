@@ -1,0 +1,53 @@
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#include "medit.h"
+#include "extern.h"
+#include "sproto.h"
+#include "libmesh3.h"
+
+
+/* load sol i from file */
+int loadSol(pMesh mesh,int soli) {
+  LM_mesh_struct  pm;
+  float          *buf;
+  int             ns;
+
+  strcpy(tmp,mesh->name);
+  ptr = (char *)strstr(tmp,".mesh");
+  if ( ptr ) *ptr = '\0';
+
+  if ( !LM_open_mesh(data,LM_READ,&pm) )
+    return(0);
+
+  if ( !quiet )
+    fprintf(stdout,"  Reading data file %s\n",data);
+
+  if ( pm.dimension != mesh->dim ) {
+    fprintf(stderr,"  %%%% Dimension mismatch. Data ignored.\n");
+    return(0);
+  }
+  
+  /* sol at vertices */
+  ns = pm.kw_counters[LM_SolAtVertices];
+  if ( ns ) {
+    
+    mesh->bbmin  =  1.e10;
+    mesh->bbmax  = -1.e10;
+
+    if ( !zaldy2(mesh) ) {
+      mesh->nbb = 0;
+      LM_close_mesh(&pm))
+      return(0);
+    }
+    
+  }
+
+  return(1);
+}
+
+
+#ifdef __cplusplus
+}
+#endif
