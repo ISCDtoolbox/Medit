@@ -1,8 +1,7 @@
 #include "medit.h"
 #include "libmesh5.h"
 #include "extern.h"
-
-extern int eigen2(double[], double[], double[]);
+#include "eigenv.h"
 
 int loadMesh(pMesh mesh) {
   pPoint      ppt;
@@ -52,9 +51,9 @@ int loadMesh(pMesh mesh) {
   mesh->nre  = GmfStatKwd(inm,GmfRequiredEdges);
   mesh->nvn  = GmfStatKwd(inm,GmfNormals);
   mesh->ntg  = GmfStatKwd(inm,GmfTangents);
-  mesh->ne  = mesh->nt + mesh->nq + mesh->ntet + mesh->nhex;
-	mesh->ne2 = mesh->nt2 + mesh->ntet2;
- 
+  mesh->ne  =  mesh->nt + mesh->nq + mesh->ntet + mesh->nhex;
+	mesh->ne2 =  mesh->nt2 + mesh->ntet2;
+
   /* check space dimension */
   if ( mesh->dim < 2 || mesh->dim > 3 ) {
 	fprintf(stdout,"  ## Wrong dim\n");
@@ -115,7 +114,7 @@ int loadMesh(pMesh mesh) {
     pt = &mesh->tria[k];
     GmfGetLin(inm,GmfTriangles,&pt->v[0],&pt->v[1],&pt->v[2],&ref);
     pt->ref  = ref & 0x7fff;
-    for (i=0; i<3; i++) {    
+    for (i=0; i<3; i++) {
       if ( pt->v[i] < 1 || pt->v[i] > mesh->np ) {
         disc++;
         pt->v[0] = 0;
@@ -209,12 +208,13 @@ int loadMesh(pMesh mesh) {
   GmfGotoKwd(inm,GmfCorners);
   for (k=1; k<=mesh->nc; k++) {
     GmfGetLin(inm,GmfCorners,&is);
-    if ( is < 1 || is > mesh->np )
+    if ( is < 1 || is > mesh->np ) {
       disc++;
+    }
     else {
       ppt = &mesh->point[is];
-      ppt->tag |= M_CORNER;
       ppt->tag &= ~M_UNUSED;
+      ppt->tag |= M_CORNER;
     }
   }
 
@@ -226,8 +226,8 @@ int loadMesh(pMesh mesh) {
       disc++;
     else {
       ppt = &mesh->point[is];
-      ppt->tag |= M_REQUIRED;
       ppt->tag &= ~M_UNUSED;
+      ppt->tag |= M_REQUIRED;
     }
   }
 
@@ -235,8 +235,9 @@ int loadMesh(pMesh mesh) {
   GmfGotoKwd(inm,GmfEdges);
   for (k=1; k<=mesh->na; k++) {
     GmfGetLin(inm,GmfEdges,&ia,&ib,&ref);
-    if ( ia < 1 || ia > mesh->np || ib < 1 || ib > mesh->np )
+    if ( ia < 1 || ia > mesh->np || ib < 1 || ib > mesh->np ) {
       disc++;
+    }
     else {
       pr = &mesh->edge[k];
       pr->v[0] = ia;
@@ -254,8 +255,9 @@ int loadMesh(pMesh mesh) {
   GmfGotoKwd(inm,GmfRidges);
   for (k=1; k<=mesh->nri; k++) {
     GmfGetLin(inm,GmfRidges,&is);
-    if ( is < 1 || is > mesh->na )
+    if ( is < 1 || is > mesh->na ) {
       disc++;
+    }
     else {
       pr = &mesh->edge[is];
       pr->tag |= M_RIDGE;
@@ -304,8 +306,9 @@ int loadMesh(pMesh mesh) {
     GmfGotoKwd(inm,GmfNormalAtVertices);
     for (k=1; k<=mesh->extra->iv; k++) {
       GmfGetLin(inm,GmfNormalAtVertices,&nn,&is);
-      if ( nn < 1 || nn > mesh->np )
+      if ( nn < 1 || nn > mesh->np ) {
         disc++;
+      }
       else
     mesh->extra->nv[nn] = is;
     }
@@ -324,16 +327,18 @@ int loadMesh(pMesh mesh) {
     }
 
     /*normals at quadrilateral vertices */
-    mesh->extra->iq = GmfStatKwd(inm,GmfNormalAtQuadrilateralVertices);
-    mesh->extra->nq = (int*)M_calloc(4*mesh->nq+1,sizeof(int),"inmesh");
-    assert(mesh->extra->nq);
-    GmfGotoKwd(inm,GmfNormalAtQuadrilateralVertices);
-    for (k=1; k<=mesh->extra->iq; k++) {
-      GmfGetLin(inm,GmfNormalAtQuadrilateralVertices,&nq,&is,&nn);
-      if ( nq < 1 || nq > mesh->nq || is < 1 || is > 4 || nn < 1 || nn > mesh->nvn )
-        disc++;
-      else
-    mesh->extra->nq[3*(nq-1)+is] = nn;
+    if ( mesh->extra->nq ) {
+      mesh->extra->iq = GmfStatKwd(inm,GmfNormalAtQuadrilateralVertices);
+      mesh->extra->nq = (int*)M_calloc(4*mesh->nq+1,sizeof(int),"inmesh");
+      assert(mesh->extra->nq);
+      GmfGotoKwd(inm,GmfNormalAtQuadrilateralVertices);
+      for (k=1; k<=mesh->extra->iq; k++) {
+        GmfGetLin(inm,GmfNormalAtQuadrilateralVertices,&nq,&is,&nn);
+        if ( nq < 1 || nq > mesh->nq || is < 1 || is > 4 || nn < 1 || nn > mesh->nvn )
+          disc++;
+        else
+      mesh->extra->nq[3*(nq-1)+is] = nn;
+      }
     }
   }
 
@@ -471,14 +476,18 @@ int saveMesh(pScene sc,pMesh mesh,char *fileout,ubyte clipon) {
   np = 0;
   for (k=1; k<=mesh->np; k++) {
     ppt = &mesh->point[k];
-    /*if ( ppt->tag & M_UNUSED )  continue;*/
+		ppt->tmp = 0;
+    if ( ppt->tag & M_UNUSED )  continue;
+		if ( clipon && ppt->clip < 2 )  continue;
     ppt->tmp = ++np;
   }
+
 
   GmfSetKwd(outm,GmfVertices,np);
   for (k=1; k<=mesh->np; k++) {
     ppt = &mesh->point[k];
-    /*if ( ppt->tag & M_UNUSED )  continue;*/
+    if ( ppt->tag & M_UNUSED )  continue;
+		if ( clipon && ppt->clip < 2 )  continue;
     ref = ppt->ref;
     if ( mesh->dim == 2 ) {
       fp1 = ppt->c[0] + mesh->xtra;
@@ -503,8 +512,9 @@ int saveMesh(pScene sc,pMesh mesh,char *fileout,ubyte clipon) {
     m  = matRef(sc,pt->ref);
     pm = &sc->material[m];
     if ( pm->flag )  continue;
-    for (i=0; i<3; i++)
+    for (i=0; i<3; i++) {
       if ( !mesh->point[pt->v[i]].tmp )  break;
+    }
     if ( i == 3 )  nt++;
   }
   GmfSetKwd(outm,GmfTriangles,nt);
@@ -514,8 +524,9 @@ int saveMesh(pScene sc,pMesh mesh,char *fileout,ubyte clipon) {
     m  = matRef(sc,pt->ref);
     pm = &sc->material[m];
     if ( pm->flag )  continue;
-    for (i=0; i<3; i++)
+    for (i=0; i<3; i++) {
       if ( !mesh->point[pt->v[i]].tmp )  break;
+    }
     if ( i < 3 )  continue;
     ref = pt->ref;
     GmfSetLin(outm,GmfTriangles,mesh->point[pt->v[0]].tmp,mesh->point[pt->v[1]].tmp,
@@ -701,6 +712,7 @@ int loadSol(pMesh mesh,char *filename,int numsol) {
   GmfGotoKwd(inm,key);
   switch(typtab[numsol]) {
     case GmfSca:
+      if ( ddebug )  printf("   scalar field\n");
       mesh->nfield = 1;
       for (k=1; k<=nel; k++) {
         if ( sol->ver == GmfFloat )
@@ -711,7 +723,7 @@ int loadSol(pMesh mesh,char *filename,int numsol) {
             fbuf[i] = dbuf[off+i];
         }
         mesh->sol[k].bb = fbuf[off];
-				if ( fabs(mesh->sol[k].bb) < 1.e-12 )  mesh->sol[k].bb = 0.0;
+				if ( fabs(mesh->sol[k].bb) < 1.e-20 )  mesh->sol[k].bb = 0.0;
         if ( mesh->sol[k].bb < mesh->bbmin )  mesh->bbmin = mesh->sol[k].bb;
         if ( mesh->sol[k].bb > mesh->bbmax )  mesh->bbmax = mesh->sol[k].bb;
       }
@@ -781,8 +793,14 @@ int loadSol(pMesh mesh,char *filename,int numsol) {
 
   if ( GmfStatKwd(inm,GmfTime,&type,&size,typtab) ) {
 	  GmfGotoKwd(inm,GmfTime);
-  	GmfGetLin(inm,GmfTime,&fbuf[0]);
-		sol->time = fbuf[0];
+    if ( sol->ver == GmfFloat ) {
+  	  GmfGetLin(inm,GmfTime,&fbuf[0]);
+		  sol->time = fbuf[0];
+		}
+		else {
+			GmfGetLin(inm,GmfTime,&dbuf[0]);
+		  sol->time = dbuf[0];
+		}
 	}
 	
   GmfCloseMesh(inm);

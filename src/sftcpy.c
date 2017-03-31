@@ -137,8 +137,7 @@ int coreps(FILE *file,GLsizei size,GLfloat *buffer) {
   }
 
   if ( ddebug )
-    printf("size = %d  ptr = %p  buffer = %p  -> size = %d\n",
-	   size,ptr,buffer,ptr-buffer);
+    printf("size = %d  ptr = %p  buffer = %p  -> size = %ld\n",size,ptr,buffer,ptr-buffer);
 
   /* allocate mem to store tokens */
   if ( ddebug ) printf("%d tokens found\n",nit);
@@ -185,7 +184,7 @@ int coreps(FILE *file,GLsizei size,GLfloat *buffer) {
   /* Sort the primitives according to depth */
   if ( sc->mode == WIRE || sc->mode == WIRE+S_MATERIAL )
     sorting = FALSE;
-  if ( ddebug ) printf("prim = %d  size = %d, %d\n",nit,ptr-buffer-1,size);
+  if ( ddebug ) printf("prim = %d  size = %ld, %d\n",nit,ptr-buffer-1,size);
 
   if ( sorting == TRUE ) {
     if ( ddebug ) printf("start sorting %d tokens...\n",nit);

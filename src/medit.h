@@ -32,9 +32,9 @@
 #include "image.h"
 #include "sproto.h"
 
-#define ME_VER   "3.0a"
-#define ME_REL   "Nov. 30, 2007"
-#define ME_CPY   "Copyright (c) LJLL, 1999-2007"
+#define ME_VER   "4.1a"
+#define ME_REL   "Mar. 30, 2012"
+#define ME_CPY   "Copyright (c) LJLL, 1999-2012"
 #define ME_STR   "&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&"
 #define DEFAULT_FILE    "DEFAULT.medit"
 

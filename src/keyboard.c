@@ -3,6 +3,7 @@
 #include "sproto.h"
 
 extern int refmat,reftype,refitem;
+extern char iso;
 int       *pilmat,ipilmat;
 int        refpick = -1;
 
@@ -431,10 +432,13 @@ void keyScene(unsigned char key,int x,int y) {
       keyMode('n',0,0);
       break;
     case 'n':
-		  if ( mesh->nvn )  keyMode('n',0,0);
-		  break;
+      if ( mesh->nvn )  keyMode('n',0,0);
+      break;
     case 'o': /* iso-lines */
-      if ( mesh->nbb ) keyMetric('l',0,0);
+      if ( mesh->nbb ) {
+        iso = 0;
+        keyMetric('l',0,0);
+      }
       break;
     case 'p':
       if ( keyact & GLUT_ACTIVE_ALT ) 
@@ -803,7 +807,7 @@ void keyScene(unsigned char key,int x,int y) {
       fflush(stdin);  fscanf(stdin,"%d",&numit);
       if ( sc->picklist )  glDeleteLists(sc->picklist,1);
       if ( numit > 0 )
-    sc->picklist = pickItem(mesh,sc,numit);
+         sc->picklist = pickItem(mesh,sc,numit);
       post = TRUE;
       break;
     case '!':  /* clip plane */
@@ -814,7 +818,6 @@ void keyScene(unsigned char key,int x,int y) {
               clip->eqn[0],clip->eqn[1],clip->eqn[2],dd);
       fprintf(stdout,"Plane coeffs : "); fflush(stdout);
       fflush(stdin);  fscanf(stdin,"%f %f %f %f",&a,&b,&c,&d);
-      resetClip(sc,clip,mesh);
       clip->eqn[0] = a;
       clip->eqn[1] = b;
       clip->eqn[2] = c;
@@ -831,12 +834,18 @@ void keyScene(unsigned char key,int x,int y) {
         fprintf(stdout," %+g",clip->eqn[3]);
       fprintf(stdout," = 0\n");
       clip->eqn[3] += (a*mesh->xtra+b*mesh->ytra+c*mesh->ztra);
+      clip->active |= C_REDO;
+			resetClip(sc,clip,mesh);
       post   = TRUE;
       dolist = TRUE;
       break;
 
     case '@': /* add trajectoire point */
-      if ( p->pmode == CAMERA )
+      if ( mesh->nbb ) {
+        iso = 1;
+        keyMetric('l',0,0);
+      }
+      else if ( p->pmode == CAMERA )
         pathAdd(sc,x,y);
       break;
     

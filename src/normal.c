@@ -22,9 +22,9 @@ GLuint drawNormals(pMesh mesh,pScene sc) {
   glNewList(dlist,GL_COMPILE);
   if ( glGetError() )  return(0);
   if ( sc->type & S_OPPOS )
-    scal = -0.025;
+    scal = -0.015;
   else
-    scal =  0.025;
+    scal =  0.015;
   scal *= sc->dmax;
 
   glColor3f(0.8,0.2,0.6);

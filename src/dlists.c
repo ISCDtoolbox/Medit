@@ -62,7 +62,7 @@ GLuint listTria(pScene sc,pMesh mesh) {
       p0 = &mesh->point[pt->v[0]];
       p1 = &mesh->point[pt->v[1]];
       p2 = &mesh->point[pt->v[2]];
-    
+
       if ( sc->shrink < 1.0 ) {
         cx = (p0->c[0] + p1->c[0] + p2->c[0]) / 3.0;
         cy = (p0->c[1] + p1->c[1] + p2->c[1]) / 3.0;
@@ -84,7 +84,7 @@ GLuint listTria(pScene sc,pMesh mesh) {
           pp2[i] = p2->c[i];
         }
       }
-    
+
       /* compute normal */
       ax = p1->c[0] - p0->c[0];
       ay = p1->c[1] - p0->c[1];
@@ -148,7 +148,142 @@ GLuint listTria(pScene sc,pMesh mesh) {
   return(dlist);
 }
 
+/* build list of triangles */
+GLuint listTriaP2(pScene sc,pMesh mesh) {
+  pMaterial  pm;
+  pTriangle  pt;
+  pPoint     p0,p1,p2;
+  GLuint     dlist;
+  double     dd,ax,ay,az,bx,by,bz;
+  float      cx,cy,cz,n[3],pp0[3],pp1[3],pp2[3];
+  int        i,k,m,mm,is0,is1,is2,transp;
 
+  /* default */
+  if ( !mesh->nt ) return(0);
+  if ( ddebug ) printf("create display list / TRIA\n");
+
+  /* build display list */
+  dlist = glGenLists(1);
+  glNewList(dlist,GL_COMPILE);
+  if ( glGetError() )  return(0);
+
+  /* build list */
+  for (m=0; m<sc->par.nbmat; m++) {
+    mm = sc->matsort[m];
+    pm = &sc->material[mm];
+    k  = pm->depmat[LTria];
+    if ( !k || pm->flag )  continue;
+    transp = 0;
+
+    if ( !(sc->mode & S_MATERIAL) )
+      pm = &sc->material[DEFAULT_MAT];
+    transp = pm->amb[3] < 0.999 || pm->dif[3] < 0.999 || pm->spe[3] < 0.999;
+    if ( transp ) {
+      glEnable(GL_BLEND);
+      glBlendFunc(GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA);
+      glDepthMask(GL_FALSE);
+    }
+    glMaterialfv(GL_FRONT_AND_BACK,GL_AMBIENT,pm->amb);
+    glMaterialfv(GL_FRONT_AND_BACK,GL_SPECULAR,pm->spe);
+    glMaterialfv(GL_FRONT_AND_BACK,GL_EMISSION,pm->emi);
+    glMaterialfv(GL_FRONT_AND_BACK,GL_SHININESS,&pm->shininess);
+    glMaterialfv(GL_FRONT_AND_BACK,GL_DIFFUSE,pm->dif);
+
+    glBegin(GL_TRIANGLES);
+    while ( k != 0 ) {
+      pt = &mesh->tria[k];
+      if ( !pt->v[0] ) {
+        k = pt->nxt;
+        continue;
+      }
+      p0 = &mesh->point[pt->v[0]];
+      p1 = &mesh->point[pt->v[1]];
+      p2 = &mesh->point[pt->v[2]];
+
+      if ( sc->shrink < 1.0 ) {
+        cx = (p0->c[0] + p1->c[0] + p2->c[0]) / 3.0;
+        cy = (p0->c[1] + p1->c[1] + p2->c[1]) / 3.0;
+        cz = (p0->c[2] + p1->c[2] + p2->c[2]) / 3.0;
+        pp0[0] = sc->shrink*(p0->c[0]-cx)+cx;
+        pp0[1] = sc->shrink*(p0->c[1]-cy)+cy;
+        pp0[2] = sc->shrink*(p0->c[2]-cz)+cz;
+        pp1[0] = sc->shrink*(p1->c[0]-cx)+cx;
+        pp1[1] = sc->shrink*(p1->c[1]-cy)+cy;
+        pp1[2] = sc->shrink*(p1->c[2]-cz)+cz;
+        pp2[0] = sc->shrink*(p2->c[0]-cx)+cx;
+        pp2[1] = sc->shrink*(p2->c[1]-cy)+cy;
+        pp2[2] = sc->shrink*(p2->c[2]-cz)+cz;
+      }
+      else {
+        for (i=0; i<3 ; i++) {
+          pp0[i] = p0->c[i];
+          pp1[i] = p1->c[i];
+          pp2[i] = p2->c[i];
+        }
+      }
+
+      /* compute normal */
+      ax = p1->c[0] - p0->c[0];
+      ay = p1->c[1] - p0->c[1];
+      az = p1->c[2] - p0->c[2];
+      bx = p2->c[0] - p0->c[0];
+      by = p2->c[1] - p0->c[1];
+      bz = p2->c[2] - p0->c[2];
+      n[0] = ay*bz - az*by;
+      n[1] = az*bx - ax*bz;
+      n[2] = ax*by - ay*bx;
+      dd = n[0]*n[0] + n[1]*n[1] + n[2]*n[2];
+      if ( dd > 0.0 ) {
+        dd = 1.0 / sqrt(dd);
+        n[0] *= dd;
+        n[1] *= dd;
+        n[2] *= dd;
+      }
+    
+      if ( sc->type & S_FLAT ) {
+        glNormal3fv(n);  glVertex3fv(pp0);
+        glNormal3fv(n);  glVertex3fv(pp1);
+        glNormal3fv(n);  glVertex3fv(pp2);
+      }
+      else {
+        is0 = is1 = is2 = 0;
+        if ( mesh->extra->iv ) {
+          if ( pt->v[0] <= mesh->nvn )  is0 = mesh->extra->nv[pt->v[0]];
+          if ( pt->v[1] <= mesh->nvn )  is1 = mesh->extra->nv[pt->v[1]];
+          if ( pt->v[2] <= mesh->nvn )  is2 = mesh->extra->nv[pt->v[2]];
+        }
+        if ( !is0 && pt->v[0] <= mesh->extra->it )  is0 = mesh->extra->nt[3*(k-1)+1];
+        if ( !is1 && pt->v[1] <= mesh->extra->it )  is1 = mesh->extra->nt[3*(k-1)+2];
+        if ( !is2 && pt->v[2] <= mesh->extra->it )  is2 = mesh->extra->nt[3*(k-1)+3];
+    
+        if ( !is0 )
+          glNormal3fv(n);  
+        else
+          glNormal3fv(&mesh->extra->n[3*(is0-1)+1]);
+        glVertex3fv(pp0);
+        if ( !is1 )
+          glNormal3fv(n);  
+        else
+          glNormal3fv(&mesh->extra->n[3*(is1-1)+1]);
+        glVertex3fv(pp1);
+        if ( !is2 )
+          glNormal3fv(n);
+        else
+          glNormal3fv(&mesh->extra->n[3*(is2-1)+1]);
+        glVertex3fv(pp2);
+      }
+      k = pt->nxt;
+    }
+    glEnd();
+    if ( transp ) {
+      glDepthMask(GL_TRUE);
+      glDisable(GL_BLEND);
+    }
+  }
+
+  glEndList();
+  return(dlist);
+}
 
 /* build list of quadrilaterals */
 GLuint listQuad(pScene sc,pMesh mesh) {

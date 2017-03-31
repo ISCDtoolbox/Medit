@@ -161,18 +161,16 @@ void mouse(int button,int state,int x,int y) {
       if ( keyact & GLUT_ACTIVE_SHIFT ) {
         /* entity designation */
         picking = GL_TRUE;
-	if ( sc->picklist ) glDeleteLists(sc->picklist,1);
-	sc->picklist = pickingScene(sc,x,y,0);
-	return;
+				if ( sc->picklist ) glDeleteLists(sc->picklist,1);
+				sc->picklist = pickingScene(sc,x,y,0);
+				return;
       }
-
       else if ( keyact & GLUT_ACTIVE_ALT ) {
-	    /* zoom */
-	    starty = y;
-	    glutMotionFunc(zoomMotion);
-	    return;
+	    	/* zoom */
+	    	starty = y;
+	    	glutMotionFunc(zoomMotion);
+	    	return;
       }
-
       else if ( keyact & GLUT_ACTIVE_CTRL ) {
         /* rubberband selection */
         glutSetCursor(GLUT_CURSOR_CROSSHAIR);
@@ -290,7 +288,7 @@ void motion(int x,int y) {
  
     /* calculate angle to rotate by */
     if ( animate && saveimg )
-      tr->angle = 2.0f;
+      tr->angle = 2.0;
     else {
       dx = pos[0] - tr->pos[0];
       dy = pos[1] - tr->pos[1];

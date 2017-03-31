@@ -18,25 +18,23 @@ typedef unsigned short uShort;
 
 typedef struct spoint {
   double    c[3];
-  int       tmp;
+  int       tmp,mark;
   short     ref;
-  uShort    mark;
   char      tag,clip,flag;
 } Point;
 typedef Point     * pPoint;
 
 typedef struct striangle {
-  int     v[3],nxt;
+  int     v[3],nxt,mark,cpt;
   short   ref;
-  uShort  mark,cpt;
   char    clip;
 } Triangle;
 typedef Triangle  * pTriangle;
 
 typedef struct striangle2 {
-  int     v[6],nxt;
+  int     v[6],nxt,cpt;
   short   ref;
-  uShort  mark,cpt;
+  uShort  mark;
   char    clip;
 } Triangle2;
 typedef Triangle2  * pTriangle2;
@@ -56,17 +54,15 @@ typedef struct edge {
 typedef Edge * pEdge;
 
 typedef struct stetra {
-  int     v[4],nxt,mark;
+  int     v[4],nxt,mark,cpt;
   short   ref;
-  uShort  cpt;
   char    clip;
 } Tetra;
 typedef Tetra * pTetra;
 
 typedef struct shexa {
   int     v[8],nxt,mark;
-  short   ref;
-  uShort  cpt;
+  short   ref,cpt;
   char    clip;
 } Hexa;
 typedef Hexa * pHexa;
@@ -91,8 +87,7 @@ typedef struct mesh {
   float       bbmin,bbmax;
   int         ne,ne2,nt,nt2,nq,ntet,ntet2,nhex;
   int         np,nc,nr,na,nre,nri;
-  int         nvn,ntg,dim,ver,nbb,typage,nfield;
-  uShort      mark;
+  int         nvn,ntg,dim,ver,nbb,typage,nfield,mark;
   char        name[256],typ;
 
   pPoint      point;

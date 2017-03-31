@@ -46,12 +46,11 @@ void drawParticle(pScene sc,pParticle pp) {
 
 
 void computeTetraParticle(pScene sc,pMesh mesh,int k) {
-  pTetra       pt;
-  pStream      st;
-  pParticle    pp;
-  double       dd,cb[4],v[4];
-  float        ux,uy,uz,pos[3],ldt;
-  int          cur,nsfin,nsold,nbp;
+  pTetra      pt;
+  pStream     st;
+  pParticle   pp;
+  double      dd,cb[4],v[4],ux,uy,uz,pos[3],ldt;
+  int         cur,nsfin,nsold,nbp;
 
   st   = sc->stream;
   pp   = &tp[k];
@@ -103,7 +102,7 @@ void computeTetraParticle(pScene sc,pMesh mesh,int k) {
     }
  
     /* find tet containing p */
-    nsfin = locateTetra(mesh,pp->nsdep,++mesh->mark,pos,cb);
+    nsfin = locateTetra(mesh,pp->nsdep,pos,cb);
     if ( !nsfin ) {
       pp->flag = 0;
       break; /*return;*/
@@ -168,7 +167,7 @@ int createParticle(pScene sc,pMesh mesh) {
   pTetra      pt1;
   pTriangle   pt;
   pPoint      ppt;
-  double      v[4],cx,cy,cz;
+  double      v[4],cx,cy,cz,pl[3];
   int         i,j,k,l,nmat,nbp,base;
 
   if ( ddebug )  printf("create particles\n");
@@ -240,16 +239,16 @@ int createParticle(pScene sc,pMesh mesh) {
   l = 1;
   for (k=1; k<=st->nbstl; k++) {
     pp = &tp[k];
-    pp->pos[1][0] = st->listp[l++];
-    pp->pos[1][1] = st->listp[l++];
-    pp->pos[1][2] = st->listp[l++];
+    pp->pos[1][0] = pl[0] = st->listp[l++];
+    pp->pos[1][1] = pl[1] = st->listp[l++];
+    pp->pos[1][2] = pl[2] = st->listp[l++];
 
-    tp[k].nsdep = locateTetra(mesh,pp->nsdep,++mesh->mark,pp->pos[1],pp->cb);
+    tp[k].nsdep = locateTetra(mesh,pp->nsdep,pl,pp->cb);
 
     if ( !pp->nsdep ) {
       for (j=1; j<=mesh->ntet; j++) {
         pt1 = &mesh->tetra[j];
-        if ( pt1->mark != mesh->mark && inTetra(mesh,j,pp->pos[1],pp->cb) )
+        if ( pt1->mark != mesh->mark && inTetra(mesh,j,pl,pp->cb) )
           break;
       }
       if ( j > mesh->ntet )  return(0);
@@ -283,7 +282,7 @@ int advectParticle(pScene sc,pMesh mesh) {
   pStream     st;
   pTetra      pt1;
   pPoint      ppt;
-  double      v[4];
+  double      v[4],pl[3];
   int         i,j,k,l,base;
 
   if ( ddebug )  printf("advect particles\n");
@@ -330,15 +329,15 @@ int advectParticle(pScene sc,pMesh mesh) {
   l = 1;
   for (k=1; k<=st->nbstl; k++) {
     pp = &tp[k];
-    pp->pos[1][0] = st->listp[l++];
-    pp->pos[1][1] = st->listp[l++];
-    pp->pos[1][2] = st->listp[l++];
+    pp->pos[1][0] = pl[0] = st->listp[l++];
+    pp->pos[1][1] = pl[1] = st->listp[l++];
+    pp->pos[1][2] = pl[2] = st->listp[l++];
 
-    tp[k].nsdep = locateTetra(mesh,pp->nsdep,++mesh->mark,pp->pos[1],pp->cb);
+    tp[k].nsdep = locateTetra(mesh,pp->nsdep,pl,pp->cb);
     if ( !pp->nsdep ) {
       for (j=1; j<=mesh->ntet; j++) {
         pt1 = &mesh->tetra[j];
-        if ( pt1->mark != mesh->mark && inTetra(mesh,j,pp->pos[1],pp->cb) )
+        if ( pt1->mark != mesh->mark && inTetra(mesh,j,pl,pp->cb) )
           break;
       }
       if ( j > mesh->ntet )  continue;

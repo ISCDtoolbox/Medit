@@ -36,7 +36,7 @@ int inmsh2(pMesh mesh) {
   fscanf(inf,"%d",&mesh->ne);
   EatLine(inf);
   if ( !mesh->np ) { /*|| (mesh->dim == 3 && !mesh->ne) ) {*/
-	fprintf(stdout,"  ## No vertex.\n");
+  fprintf(stdout,"  ## No vertex.\n");
     fclose(inp);
     return(-1);
   }
@@ -86,15 +86,15 @@ int inmsh2(pMesh mesh) {
       fclose(inf);
       return(0);
     }
-    if ( ptr = strpbrk(sx,"dD") )
-      *ptr = 'E';
-    if ( ptr = strpbrk(sy,"dD") )
-      *ptr = 'E';
-    if ( ptr = strpbrk(sz,"dD") )
-      *ptr = 'E';
-    sscanf(sx,"%f",&ppt->c[0]);
-    sscanf(sy,"%f",&ppt->c[1]);
-    sscanf(sz,"%f",&ppt->c[2]);
+    ptr = strpbrk(sx,"dD");
+    if ( ptr )  *ptr = 'E';
+    ptr = strpbrk(sy,"dD");
+    if ( ptr )   *ptr = 'E';
+    ptr = strpbrk(sz,"dD");
+    if ( ptr )  *ptr = 'E';
+    sscanf(sx,"%lf",&ppt->c[0]);
+    sscanf(sy,"%lf",&ppt->c[1]);
+    sscanf(sz,"%lf",&ppt->c[2]);
     ppt->ref = ref;
     ppt->tag = M_UNUSED;
   }
@@ -135,14 +135,14 @@ int inmsh2(pMesh mesh) {
     else if ( degree == 3 ) {
       pt1 = &mesh->tria[++mesh->nt];
       fscanf(inf,"%d %d %d %d %d %d %d\n",&pt1->v[0],&pt1->v[1],&pt1->v[2],
-	     &ref,&dum,&dum,&dum);
+       &ref,&dum,&dum,&dum);
       if ( pt1->v[0] <= 0 || pt1->v[0] > mesh->np ||
            pt1->v[1] <= 0 || pt1->v[1] > mesh->np ||
            pt1->v[2] <= 0 || pt1->v[2] > mesh->np ) {
-	    fprintf(stdout,"  ## Wrong index\n");
-	    disc++;
-	    pt1->v[0] = 0;
-	    continue;
+      fprintf(stdout,"  ## Wrong index\n");
+      disc++;
+      pt1->v[0] = 0;
+      continue;
       }
       pt1->ref = fabs(ref);
       pp0 = &mesh->point[pt1->v[0]];
@@ -160,10 +160,10 @@ int inmsh2(pMesh mesh) {
            pq1->v[1] <= 0 || pq1->v[1] > mesh->np ||
            pq1->v[2] <= 0 || pq1->v[2] > mesh->np ||
            pq1->v[3] <= 0 || pq1->v[3] > mesh->np ) {
-		fprintf(stdout,"  ## Wrong index\n");
-	    disc++;
-	    pq1->v[0] = 0;
-	    continue;
+    fprintf(stdout,"  ## Wrong index\n");
+      disc++;
+      pq1->v[0] = 0;
+      continue;
       }
 
       pq1->ref = fabs(ref);

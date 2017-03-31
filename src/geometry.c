@@ -2,20 +2,28 @@
 #include "extern.h"
 #include "sproto.h"
 
+extern int getIso(pScene sc,double norm,double *hsv);
+
+
 GLuint geomList(pScene sc,pMesh mesh) {
   GLuint     list = 0;
   pMaterial  pm;
   pEdge      pr;
   pPoint     ppt,pp0,pp1;
-  double     dd;
+	pSolution  ps0;
+  double     dd,rgb[3],val;
   float      n[3];
   int        k,it = 0,nm;
+	char       nodata;
   static float green[4] = {0.0, 1.0, 0.0, 1.0};
   static float rouge[4] = {1.0, 0.0, 0.0, 1.0};
   static float jaune[4] = {1.0, 1.0, 0.0, 1.0};
-
+  static float orange[4]= {1.0, 0.65, 0.0, 1.0};
+  static double hsv[3] = { 0.0, 1.0, 0.8 };
+  
   /* default */
   if ( mesh->na+mesh->nc+mesh->np == 0 )  return(0);
+  nodata = egal(sc->iso.val[0],sc->iso.val[MAXISO-1]);
 
   /* create display list */
   list = glGenLists(1);
@@ -26,38 +34,24 @@ GLuint geomList(pScene sc,pMesh mesh) {
   /* draw corners, ridges and required items */
   if ( ddebug ) printf("construct point list\n");
   if ( mesh->ne ) {
-/*--- nouvelle partie -> Laurent
-    glPolygonMode(GL_FRONT_AND_BACK,GL_FILL);
-	  glEnable(GL_LIGHTING);
-    for (k=1; k<=mesh->np; k++) {
-      ppt = &mesh->point[k];
-      if ( ppt->tag & M_UNUSED && !ppt->ref )  continue;
-      if ( ppt->tag == M_CORNER )
-        glColor3fv(rouge);
-      else if ( ppt->tag == M_REQUIRED )
-        glColor3fv(green);
-      else continue;
-      it++;
-      glPushMatrix();
-      glTranslatef(ppt->c[0],ppt->c[1],ppt->c[2]);
-      glutSolidSphere(0.1*sc->dmax,10,10);
-      glPopMatrix();
-    }
-	  glDisable(GL_LIGHTING);
----*/
     /*--- ancienne partie --- */
     glPointSize(sc->par.pointsize);
     glBegin(GL_POINTS);
     for (k=1; k<=mesh->np; k++) {
       ppt = &mesh->point[k];
-      if ( ppt->tag & M_UNUSED && !ppt->ref )  continue;
-      if ( ppt->tag == M_CORNER )
+      if ( ppt->tag & M_UNUSED )
+        continue;
+      else if ( ppt->tag & M_CORNER )
         glColor3fv(rouge);
-      else if ( ppt->tag == M_REQUIRED )
+      else if ( ppt->tag & M_REQUIRED )
         glColor3fv(green);
-      else continue;
+      else if ( !(ppt->tag & M_RIDGE) )
+        continue;
+      else if ( sc->par.linc == 1 )
+        glColor3fv(sc->par.edge);
+      else
+        glColor3fv(orange);
       it++;
-      if ( sc->par.linc == 1 )  glColor3fv(sc->par.edge);
       glVertex3f(ppt->c[0],ppt->c[1],ppt->c[2]);
     }
     glEnd();
@@ -65,28 +59,10 @@ GLuint geomList(pScene sc,pMesh mesh) {
     glPointSize(1);
   }
   else {
-/*--- nouvelle partie -> Alexandra 
-    pm = &sc->material[DEFAULT_MAT];
-    glMaterialfv(GL_FRONT_AND_BACK,GL_DIFFUSE,pm->dif);
-    glMaterialfv(GL_FRONT_AND_BACK,GL_AMBIENT,pm->amb);
-    glMaterialfv(GL_FRONT_AND_BACK,GL_SPECULAR,pm->spe);
-    glMaterialfv(GL_FRONT_AND_BACK,GL_EMISSION,pm->emi);
-    glMaterialfv(GL_FRONT_AND_BACK,GL_SHININESS,&pm->shininess);
-		glDisable(GL_LIGHTING);
-	  glPolygonMode(GL_FRONT_AND_BACK,GL_FILL);
-		glEnable(GL_LIGHTING);
-	    for (k=1; k<=mesh->np; k++) {
-	      ppt = &mesh->point[k];
-	      it++;
-	      glPushMatrix();
-	      glTranslatef(ppt->c[0],ppt->c[1],ppt->c[2]);
-	      glutSolidSphere(0.01*sc->dmax,10,10);
-	      glPopMatrix();
-	    }
-		glDisable(GL_LIGHTING);
----*/
-    glPointSize(sc->par.pointsize);
-    glColor3fv(rouge);
+		if ( nodata )
+			glPointSize(sc->par.pointsize);
+		else
+			glPointSize(2.0);
     glBegin(GL_POINTS);
     for (k=1; k<=mesh->np; k++) {
       ppt = &mesh->point[k];
@@ -100,10 +76,37 @@ GLuint geomList(pScene sc,pMesh mesh) {
         n[1] *= dd;
         n[2] *= dd;
       }
-      glNormal3fv(n);
-      glVertex3f(ppt->c[0],ppt->c[1],ppt->c[2]);
+	    if ( !nodata ) {
+	      ps0 = &mesh->sol[k];
+				val = ps0->bb;
+				getIso(sc,val,hsv);
+		    hsvrgb(hsv,rgb);
+		    glColor3dv(rgb);
+	      glVertex3f(ppt->c[0],ppt->c[1],ppt->c[2]);
+			}
+	    else {
+				glColor3fv(rouge);
+        glNormal3fv(n);
+	      glVertex3f(ppt->c[0],ppt->c[1],ppt->c[2]);
+			}
     }
-    glEnd();
+		glEnd();
+
+    /*if ( !nodata) {
+		  glPointSize(sc->par.pointsize);
+      glBegin(GL_POINTS);
+		  for (k=1; k<=mesh->np; k++) {
+			  ppt = &mesh->point[k];
+			  if ( !ppt->ref )  continue;
+	      ps0 = &mesh->sol[k];
+				val = ps0->bb;
+				getIso(sc,val,hsv);
+		    hsvrgb(hsv,rgb);
+		    glColor3dv(rgb);
+			  glVertex3f(ppt->c[0],ppt->c[1],ppt->c[2]);
+		  }
+	    glEnd();
+		}*/
     it = mesh->np;
   }
 

@@ -1,5 +1,5 @@
 /* animat.c */
-int    loadNextMesh(pMesh ,int ,int );
+int    loadNextMesh(pMesh ,int ,int ,int );
 int    animat();
 int    playAnim(pScene ,pMesh ,int ,int );
 void   glutIdle(void);
@@ -38,8 +38,10 @@ GLuint  listQuad(pScene ,pMesh );
 GLuint  listTetra(pScene ,pMesh ,ubyte );
 GLuint  listHexa(pScene ,pMesh ,ubyte );
 
-/* eigenv.c */
-int    eigenv(int sym,double mat[6],double lambda[3],double v[3][3]);
+/* ellipse.c */
+void drawEllipse(pScene sc,pMesh mesh,int typel,int k);
+void drawEllipsoid(pScene sc,pMesh mesh,int typel,int k);
+GLuint drawAllEllipse(pScene sc,pMesh mesh);
 
 /* geometry.c */
 GLuint geomList(pScene ,pMesh );
@@ -181,6 +183,7 @@ int    parsop(pScene ,pMesh );
 int    createParticle(pScene ,pMesh );
 int    advectParticle(pScene sc,pMesh mesh);
 int    animParticle(pScene sc,pMesh mesh);
+int    displayParticle(pScene sc,pMesh mesh);
 
 /* path.c */
 int    pathAdd(pScene ,int, int);
@@ -232,24 +235,23 @@ void redrawStatusBar(pScene sc);
 void mouseStatus(int button,int state,int x,int y);
 
 /* stream.c */
+int     nxtPoint3D(pMesh mesh,int nsdep,double *p,double step,double *v);
 double  sizeTetra(pMesh ,int );
 double  sizeHexa(pMesh ,int );
 double  sizeTria(pMesh ,int );
-int     locateTria(pMesh mesh,int nsdep,int base,float *p,double *cb);
-int     locateTetra(pMesh mesh,int nsdep,int base,float *p,double *cb);
-int     inTria(pMesh ,int ,float *,double *);
-int     inTetra(pMesh mesh,int nsdep,float *p,double *cb);
-int     listTetraStream(pScene ,pMesh ,float *,int );
+int     locateTria(pMesh mesh,int nsdep,double *p,double *cb);
+int     locateTetra(pMesh mesh,int nsdep,double *p,double *cb);
+int     inTria(pMesh ,int ,double *,double *);
+int     inTetra(pMesh mesh,int nsdep,double *p,double *cb);
+int     listTetraStream(pScene ,pMesh ,float *,int ,double *,char );
 int     listHexaStream(pScene ,pMesh ,float *,int );
-int     listTriaStream(pScene ,pMesh ,float *);
+int     listTriaStream(pScene ,pMesh ,float *,int );
 pStream createStream(pScene ,pMesh );
 int     streamRefTria(pScene sc,pMesh mesh);
 int     streamRefQuad(pScene sc,pMesh mesh);
 int     streamRefPoint(pScene sc,pMesh mesh);
 int     streamIsoPoint(pScene sc,pMesh mesh);
 int     listSaddleStream(pScene sc,pMesh mesh,int depart,float *pp,float *vv,double lambda);
-int     nxtPoint3D(pMesh mesh,int nsdep,float *p,float step,double *v);
-int     nxtPoint2D(pMesh mesh,int nsdep,float *p,float step,double *v);
 double  field2DInterp(pMesh mesh,int iel,double *cb,double *v);
 double  vector3DInterp(pMesh mesh,pPoint pt[4],double *cb,double *v);
 double  field3DInterp(pMesh mesh,int iel,double *cb,double *v);

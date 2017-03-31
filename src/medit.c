@@ -93,7 +93,7 @@ static void grInfo(void) {
 
 int medit0() {
   pMesh    mesh;
-  char     data[128],*name;
+  char     data[1024],*name;
   int      k,l,ret;
   clock_t  ct;
 
@@ -105,7 +105,7 @@ int medit0() {
   if ( !cv.nbm ) {
     fprintf(stdout,"  File name(s) missing. Please enter : ");
     fflush(stdout); fflush(stdin);
-    fgets(data,120,stdin);
+    fgets(data,1020,stdin);
     if ( !strlen(data) ) {
       fprintf(stdout,"  ## No data\n");
       return(0);
@@ -199,12 +199,12 @@ int medit1() {
     parsop(scene,mesh);
     meshRef(scene,mesh);
     matSort(scene);
-	
+
     if ( option == ISOSURF ) {
-	  if ( !mesh->nbb ) return(0);
+	    if ( !mesh->nbb ) return(0);
       setupPalette(scene,mesh);
-	  tetraIsoPOVray(scene,mesh);
-	}
+	    tetraIsoPOVray(scene,mesh);
+	  }
     else if ( !createScene(scene,k) ) {
       fprintf(stderr,"  ## Unable to create scene\n");
       return(0);
@@ -218,23 +218,7 @@ int medit1() {
 
 
 int main(int argc,char *argv[]) {
-	
-	/*
-	//Uncomment to compile for web
-	char **newv = malloc((argc + 1) * sizeof(*newv));
-	memmove(newv, argv, sizeof(*newv) * argc);
-	newv[argc] = "/Users/guestaccount/cube.mesh";
-	argc++;
-	argv = newv;
-	fprintf(stdout," File included: %s\n",argv[argc-1]);
-	*/
-	
   int    type;
-  char   pwd[1024];
-
-#ifdef ppc
-  if ( !getwd(pwd) )  exit(2);
-#endif
 
   fprintf(stdout,"  -- Medit,  Release %s (%s)\n",ME_VER,ME_REL);
   fprintf(stdout,"     %s.\n",ME_CPY);

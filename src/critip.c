@@ -13,7 +13,6 @@ typedef struct saddle {
 #define EPSD  1.e-14
 #define EPS3  1.e-03
 #define MAXPS 100
-#define HSIZ  0.001
 
 static int idir[5] = {0,1,2,0,1};
 
@@ -49,16 +48,15 @@ GLuint listCritPoint(pScene sc,pMesh mesh) {
   GLuint      dlist;
   double      aire,ux,uy,vx,vy,dd,cb0[3],cb1[3],cb2[3],vv[3][2],bc[3];
   double      rgb[3],a0,a1,delta,rr1,rr2,aa,dmin;
-  float       p[3];
+  double      p[3];
   int        *adj,iadr,i,i1,i2,k,m,ncp,ps,ifilt;
   ubyte       typ,tag;
   static double hsv[3] = {0.0f, 1.0f, 0.80f};
-  time_t      t;
 
   if ( !mesh->nbb || mesh->nfield != mesh->dim ) return(0);
   if ( mesh->nt && !hashTria(mesh) )  return(0);
   if ( egal(sc->iso.val[0],sc->iso.val[MAXISO-1]) )  return(0);
-  if ( ddebug )  printf("find critical points\n");
+  fprintf(stdout," Identification of critical points\n");
 
   /* build list */
   typ = 0;
@@ -86,7 +84,6 @@ GLuint listCritPoint(pScene sc,pMesh mesh) {
         k = pt->nxt;
         continue;
       }
-
       p0 = &mesh->point[pt->v[0]];
       p1 = &mesh->point[pt->v[1]];
       p2 = &mesh->point[pt->v[2]];
@@ -98,9 +95,8 @@ GLuint listCritPoint(pScene sc,pMesh mesh) {
       uy = p1->c[1] - p0->c[1];
       vx = p2->c[0] - p0->c[0];
       vy = p2->c[1] - p0->c[1];
-      
-      aire = ux*vy - uy*vx;
-      if ( aire == 0.0 ) {
+      aire  = ux*vy - uy*vx;
+      if ( fabs(aire) < 1.e-200 ) {
         k = pt->nxt;
         continue;
       }
@@ -158,45 +154,44 @@ GLuint listCritPoint(pScene sc,pMesh mesh) {
         iadr = 3*(k-1)+1;
         adj  = &mesh->adja[iadr];
         ifilt ++;
-	switch (tag) {
+	      switch (tag) {
           case 1:
-	    if ( !adj[0] ) {
-	      k = pt->nxt;
-	      continue;
-	    }
-	    break;
-	  case 2:
-	    if ( !adj[1] ) {
-	      k = pt->nxt;
-	      continue;
-	    }
-	    break;
-	  case 4:
-	    if ( !adj[2] ) {
-	      k = pt->nxt;
-	      continue;
-	    }
-	    break;
-	  
-	  case 3:
+	          if ( !adj[0] ) {
+	            k = pt->nxt;
+	            continue;
+	          }
+	        break;
+	        case 2:
+	          if ( !adj[1] ) {
+	            k = pt->nxt;
+	            continue;
+	          }
+	        break;
+	        case 4:
+	          if ( !adj[2] ) {
+	            k = pt->nxt;
+	            continue;
+	          }
+	        break;
+	        case 3:
             if ( !closedBall(mesh,k,2) ) {
-	      k = pt->nxt;
-	      continue;
-	    }
-	    break;
-	  case 5:
+	            k = pt->nxt;
+	            continue;
+	          }
+	        break;
+	        case 5:
             if ( !closedBall(mesh,k,1) ) {
-	      k = pt->nxt;
-	      continue;
-	    }	  
-	    break;  
-	  case 6:
+	            k = pt->nxt;
+	            continue;
+	          }	  
+	        break;  
+	        case 6:
             if ( !closedBall(mesh,k,0) ) {
-	      k = pt->nxt;
-	      continue;
-	    }
-	    break;
-	}
+	            k = pt->nxt;
+	            continue;
+	          }
+	        break;
+	      }
       }
 
       /* eigenvalues of jacobian */
@@ -259,15 +254,14 @@ GLuint listCritPoint(pScene sc,pMesh mesh) {
           }
         }
       }
-
       /* point color */
       glBegin(GL_POINTS);
-        glColor3dv(rgb);
-        glVertex2fv(p);
+      glColor3dv(rgb);
+      glVertex2f(p[0],p[1]);
       glEnd();
       pt->cpt--;
       ++ncp;
-
+			fprintf(stdout,"   %3d: %f %f \n",p[0]+mesh->xtra,p[1]+mesh->ytra,ncp);
       k = pt->nxt;
     }
   }
@@ -277,12 +271,11 @@ GLuint listCritPoint(pScene sc,pMesh mesh) {
   if ( ncp )
     fprintf(stdout,"   %d critical points identified (%d filtered)\n",ncp,ifilt);
 
-return(dlist);
+  return(dlist);
   
   if ( ps ) {
     fprintf(stdout," Building streamline(s)");
     fflush(stdout);
-    t = clock();
 
     if ( !sc->slist ) {
       sc->stream = createStream(sc,mesh);
@@ -304,8 +297,6 @@ return(dlist);
     }
     sc->isotyp |= S_STREAML;
     fprintf(stdout,": %d lines",ps);
-    t = clock() - t;
-    fprintf(stdout," %6.2f sec.\n",t/(float)CLOCKS_PER_SEC);
   }
   
   return(dlist);

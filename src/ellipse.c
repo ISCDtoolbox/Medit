@@ -278,7 +278,7 @@ GLuint drawAllEllipse(pScene sc,pMesh mesh) {
       m[0] = ps->m[0];
       m[1] = ps->m[1];
       m[2] = ps->m[2];
-      if ( !eigen2(m,lambda,vp) ) return(1);
+      if ( !eigen2(m,lambda,vp) ) return(0);
 
       /* consider eigenvalues as sizes */
       dd1 = 1.0 / sqrt(fabs(lambda[0]));
@@ -306,7 +306,7 @@ GLuint drawAllEllipse(pScene sc,pMesh mesh) {
       m[0] = ps->m[0];
       m[1] = ps->m[1];
       m[2] = ps->m[2];
-      if ( !eigen2(m,lambda,vp) ) return(1);
+      if ( !eigen2(m,lambda,vp) ) return(0);
 
       /* consider eigenvalues as sizes */
       dd1 = 1.0 / sqrt(fabs(lambda[0]));
@@ -346,4 +346,43 @@ void circumSphere(pScene sc,pMesh mesh,int typel,int k) {
   glPopMatrix();
   glEnable(GL_LIGHTING);
 }
+
+
+void drawH2O() {
+    static float h2o[3][3] = {0.0, 0.0, 0.2137, 0., 1.4161, -0.855, 0., -1.4161, -0.855 };
+
+  glPolygonMode(GL_FRONT_AND_BACK,GL_FILL);
+  glColor3f(0.8, 0.1, 0.1);
+  glPushMatrix();
+  glTranslatef(h2o[0][0],h2o[0][1],h2o[0][2]);
+  glScalef(.2,.2,.2);
+  glutSolidSphere(1.,30,30);
+  glPopMatrix();
+  
+  glColor3f(0.8, 0.8, 0.8);
+  glPushMatrix();
+  glTranslatef(h2o[1][0],h2o[1][1],h2o[1][2]);
+  glScalef(.2,.2,.2);
+  glutSolidSphere(1.,30,30);
+  glPopMatrix();
+
+  glColor3f(0.8, 0.8, 0.8);
+  glPushMatrix();
+  glTranslatef(h2o[2][0],h2o[2][1],h2o[2][2]);
+  glScalef(.2,.2,.2);
+  glutSolidSphere(1.,30,30);
+  glPopMatrix();
+  
+  glColor3f(0.5, 0.5, 0.5);
+  glLineWidth(10);
+  glBegin(GL_LINES);
+  glVertex3d(h2o[0][0],h2o[0][1],h2o[0][2]);
+  glVertex3d(h2o[1][0],h2o[1][1],h2o[1][2]);
+
+  glVertex3d(h2o[0][0],h2o[0][1],h2o[0][2]);
+  glVertex3d(h2o[2][0],h2o[2][1],h2o[2][2]);
+  glEnd();
+  glLineWidth(1.);
+}
+
 

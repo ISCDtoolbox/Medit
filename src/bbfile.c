@@ -1,8 +1,8 @@
 #include "medit.h"
 #include "extern.h"
 #include "sproto.h"
+#include "eigenv.h"
 
-extern int eigen2(double[], double[], double[]);
 
 int EatLine(FILE  *in) {
   int    k,c;  
@@ -80,10 +80,10 @@ int bbfile(pMesh mesh) {
   fscanf(in,"%d",&i3);
   bigbb=  (EatSpace(in)==0); /* not nl after the 4 integer => BB */
 
-  if ( !quiet )
-    if(bigbb)  fprintf(stdout,"  Reading BB file %s\n",data);
+  if ( !quiet ) {
+    if ( bigbb )  fprintf(stdout,"  Reading BB file %s\n",data);
     else  fprintf(stdout,"  Reading bb file %s\n",data);
-
+  }
   if ( dim < 2 || dim > 3 || err ) {
     fprintf(stderr,"  %%%% Wrong file (dim=%d) (err=%d). Ignored\n",dim,err);
     return(0);
@@ -163,7 +163,8 @@ int bbfile(pMesh mesh) {
       ps = &mesh->sol[k];
       ps->bb = 0.0;
       if ( fscanf(in,"%s",data) != 1 )  continue;
-      if ( ptr = strpbrk(data,"dD") ) *ptr = 'E';
+			ptr = strpbrk(data,"dD");
+      if ( ptr )  *ptr = 'E';
       sscanf(data,"%f",&ps->bb);
       if ( ps->bb < mesh->bbmin )  mesh->bbmin = ps->bb;
       if ( ps->bb > mesh->bbmax )  mesh->bbmax = ps->bb;
@@ -179,11 +180,13 @@ int bbfile(pMesh mesh) {
       ps->bb = 0.0;
       for (l=0; l<mesh->dim; l++) {
         if ( fscanf(in,"%s",data) != 1 )  continue;
-        if ( ptr = strpbrk(data,"dD") ) *ptr = 'E';
+				ptr = strpbrk(data,"dD");
+				if ( ptr )  *ptr = 'E';
         sscanf(data,"%f",&ps->m[l]);
         ps->bb += ps->m[l]*ps->m[l];
       }
       ps->bb = sqrt(ps->bb);
+			
       if ( ps->bb < mesh->bbmin )  mesh->bbmin = ps->bb;
       if ( ps->bb > mesh->bbmax )
         mesh->bbmax = ps->bb;
@@ -217,7 +220,8 @@ int bbfile(pMesh mesh) {
       ps->bb = 0.0f;
       for (l=0; l<6; l++) {
         if ( fscanf(in,"%s",data) != 1 )  continue;
-        if ( ptr = strpbrk(data,"dD") ) *ptr = 'E';
+				ptr = strpbrk(data,"dD");
+				if ( ptr )  *ptr = 'E';
         sscanf(data,"%f",&dummy);
         m[l] = dummy;
       }

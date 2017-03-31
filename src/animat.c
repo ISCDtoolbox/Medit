@@ -21,10 +21,13 @@ static int getmesh(pMesh mesh,int range) {
   if ( mesh->voy  )  M_free(mesh->voy);
   if ( mesh->point ) M_free(mesh->point);
   if ( mesh->extra ) {
-    if ( mesh->extra->iv )  M_free(mesh->extra->nv);
-    if ( mesh->extra->it )  M_free(mesh->extra->nt);
-    if ( mesh->extra->iq )  M_free(mesh->extra->nq);
+    if ( mesh->extra->nv )  M_free(mesh->extra->nv);
+    if ( mesh->extra->nt )  M_free(mesh->extra->nt);
+    if ( mesh->extra->nq )  M_free(mesh->extra->nq);
     if ( mesh->extra->n )   M_free(mesh->extra->n);
+    if ( mesh->extra->t )   M_free(mesh->extra->t);
+		if ( mesh->extra->tv )  M_free(mesh->extra->tv);
+		if ( mesh->extra->te )  M_free(mesh->extra->te);
     M_free(mesh->extra);
     mesh->extra = (void*)0;
   }
@@ -75,24 +78,40 @@ static int getmesh(pMesh mesh,int range) {
   }
   if ( (mesh->ntet && !mesh->nt) || (mesh->nhex && !mesh->nq) )  
     meshSurf(mesh);
+
   meshBox(mesh,animdep==range);
   if ( !quiet )  meshInfo(mesh);
 
-  /* read metric */
+  return(1);
+}
+
+static int getsol(pMesh mesh,int range) { 
+  char   *ptr,data[256];
+  static char base[256];
+
+  if ( animdep == range ) {
+    sprintf(data,".%d",range);
+    ptr = (char *)strstr(mesh->name,data);
+    if ( ptr )  *ptr = '\0';
+    strcpy(base,mesh->name);
+  }
+
+	/* read metric */
+  sprintf(mesh->name,"%s.%d",base,range);
   if ( !loadSol(mesh,mesh->name,1) )
     bbfile(mesh);
   if ( !quiet && mesh->nbb )
     fprintf(stdout,"    Solutions  %8d\n",mesh->nbb);
 
-  return(1);
+	return(1);
 }
 
-
-int loadNextMesh(pMesh mesh,int k,int parse) {
+int loadNextMesh(pMesh mesh,int km,int ks,int parse) {
   pScene    sc;
   int       is;
 
-  if ( !getmesh(mesh,k) )  return(0);
+  if ( !getmesh(mesh,km) )  return(0);
+	if ( !getsol(mesh,ks) )   return(0);
   if ( ddebug ) printf("loadNextMesh: create %d window(s)\n",cv.nbs);
 
   /* compute mesh box */
@@ -102,10 +121,15 @@ int loadNextMesh(pMesh mesh,int k,int parse) {
     if ( !cv.scene[is] )  return(0);
   }
   sc = cv.scene[is];
+	sc->iso.palette = 0;
   if ( parse ) {
     parsop(sc,mesh);
   }
-  setupPalette(sc,mesh);
+
+	if ( sc->mode & S_DISPL ) {
+    meshCoord(mesh,1);
+	}
+  //setupPalette(sc,mesh);
   meshRef(sc,mesh);
   matSort(sc);
 
@@ -133,9 +157,9 @@ int playAnim(pScene sc,pMesh mesh,int deb,int fin) {
     strcpy(mesh->name,base);
 
     resetLists(sc,mesh);
-    if ( !loadNextMesh(mesh,k,0) ) {  /* modif le 3/08/09 */
+    if ( !loadNextMesh(mesh,k,k,0) ) {  /* modif le 3/08/09 */
 	    strcpy(mesh->name,base);
-	    if ( !loadNextMesh(mesh,deb,0) ) {
+	    if ( !loadNextMesh(mesh,deb,k,0) ) {
 		    fprintf(stderr,"  ** %s  NOT FOUND.\n",data); 
    	    return(0);
       }
@@ -162,11 +186,10 @@ int playAnim(pScene sc,pMesh mesh,int deb,int fin) {
 	sc->par.cumtim -= sc->par.dt;
 
   if ( saveimg ) {
-    glDrawBuffer(GL_FRONT | GL_BACK);
-    if ( saveimg ) {
-      sprintf(data,"Medit - [%s] #%d",mesh->name,sc->idwin);
-      glutSetWindowTitle(data);
-    }
+    //glDrawBuffer(GL_FRONT | GL_BACK);
+		glDrawBuffer(GL_BACK);
+    sprintf(data,"Medit - [%s] #%d",mesh->name,sc->idwin);
+    glutSetWindowTitle(data);
     glutPostRedisplay();
     saveimg = 0;
   }
@@ -190,7 +213,7 @@ int animParticle(pScene sc,pMesh mesh) {
   strcpy(mesh->name,base);
 
   resetLists(sc,mesh);
-  if ( !loadNextMesh(mesh,cur,1) )  return(0);
+  if ( !loadNextMesh(mesh,cur,cur,1) )  return(0);
 
   doLists(sc,mesh);
   sc->glist = geomList(sc,mesh);
@@ -241,7 +264,7 @@ int animat() {
 
   /* read initial mesh */
   mesh = cv.mesh[0];
-  if ( !loadNextMesh(mesh,animdep,1) )  return(0);
+  if ( !loadNextMesh(mesh,animdep,animdep,1) )  return(0);
 
   /* create grafix */
   sc = cv.scene[0];

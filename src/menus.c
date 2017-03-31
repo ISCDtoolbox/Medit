@@ -3,12 +3,10 @@
 #include "sproto.h"
 
 GLfloat    altcoef=0.0;
+char       iso = 0;
 static int nbimg;
 extern int refitem,refmat,reftype,imstep,imreverse;
 extern int *pilmat,ipilmat;
-
-#define MAX_LST   128
-
 
 /* rebuild display lists */
 void doLists(pScene sc,pMesh mesh) {
@@ -110,7 +108,7 @@ void doIsoLists(pScene sc,pMesh mesh,int reset) {
   /* iso-lines */
   if ( sc->isotyp & S_ISOLINE ) {
     if ( mesh->nt && !sc->ilist[LTria] )
-      sc->ilist[LTria] = listTriaIso(sc,mesh);
+      sc->ilist[LTria] = iso == 0 ? listTriaIso(sc,mesh): listTriaIso2(sc,mesh);
     if ( mesh->nq && !sc->ilist[LQuad] )
       sc->ilist[LQuad] = listQuadIso(sc,mesh);
   }
@@ -168,7 +166,6 @@ void doIsoLists(pScene sc,pMesh mesh,int reset) {
       if ( mesh->nt && !sc->cplist )
         sc->cplist = listCritPoint(sc,mesh);
   }
-  
   glutSetCursor(GLUT_CURSOR_INHERIT);
   checkErrors();
 }
@@ -400,7 +397,7 @@ void keyAnim(unsigned char key,int x,int y) {
   case 'I':  /* save image */
     saveimg = 1 - saveimg;
     nbimg   = 0;
-    post    = GL_FALSE;
+    post    = FALSE;
     break;
 
   case 'M':  /* morphing */
@@ -429,7 +426,7 @@ void keyAnim(unsigned char key,int x,int y) {
     if ( ptr )  *ptr = '\0';
     strcpy(base,mesh->name);
     resetLists(sc,mesh);
-    if ( !loadNextMesh(mesh,animdep,0) )  break;
+    if ( !loadNextMesh(mesh,animdep,animdep,0) )  break;
     doLists(sc,mesh);
     if ( sc->mode & S_MAP ) doMapLists(sc,mesh,0);
     if ( sc->isotyp )       doIsoLists(sc,mesh,0);
@@ -442,7 +439,7 @@ void keyAnim(unsigned char key,int x,int y) {
     if ( ptr )  *ptr = '\0';
     strcpy(base,mesh->name);
     resetLists(sc,mesh);
-    if ( !loadNextMesh(mesh,animfin,0) )  break;
+    if ( !loadNextMesh(mesh,animfin,animfin,0) )  break;
     doLists(sc,mesh);
     if ( sc->mode & S_MAP ) doMapLists(sc,mesh,0);
     if ( sc->isotyp )       doIsoLists(sc,mesh,0);
@@ -456,7 +453,7 @@ void keyAnim(unsigned char key,int x,int y) {
     if ( ptr )  *ptr = '\0';
     strcpy(base,mesh->name);
     resetLists(sc,mesh);
-    if ( !loadNextMesh(mesh,depart,0) )  break;
+		if ( !loadNextMesh(mesh,depart,depart,0) )  break;
     doLists(sc,mesh);
     if ( sc->mode & S_MAP ) doMapLists(sc,mesh,0);
     if ( sc->isotyp )       doIsoLists(sc,mesh,0);
@@ -470,7 +467,7 @@ void keyAnim(unsigned char key,int x,int y) {
     if ( ptr )  *ptr = '\0';
     strcpy(base,mesh->name);
     resetLists(sc,mesh);
-    if ( !loadNextMesh(mesh,depart,0) )  break;
+    if ( !loadNextMesh(mesh,depart,depart,0) )  break;
     doLists(sc,mesh);
     if ( sc->mode & S_MAP ) doMapLists(sc,mesh,0);
     if ( sc->isotyp )       doIsoLists(sc,mesh,0);

@@ -1,7 +1,7 @@
 #include "medit.h"
 #include "extern.h"
 #include "sproto.h"
-extern int displayParticle(pScene,pMesh);
+
 
 extern GLboolean  hasStereo;
 extern int       *pilmat,ipilmat,refmat,reftype,refitem;
@@ -348,6 +348,8 @@ static void displayData(pScene sc,pMesh mesh) {
   }
 
   /* streamlines */
+  if ( sc->clip->active & C_ON )
+    glEnable(GL_CLIP_PLANE0);
   if ( sc->isotyp & S_CRITP && sc->cplist )
     glCallList(sc->cplist);
   if ( sc->isotyp & S_STREAML ) {
@@ -361,6 +363,8 @@ static void displayData(pScene sc,pMesh mesh) {
     displayParticle(sc,mesh);
     glDisable(GL_COLOR_MATERIAL);
   }
+  if ( sc->clip->active & C_ON )
+    glDisable(GL_CLIP_PLANE0);
 
   /* iso-surfaces */
   if ( sc->isotyp & S_ISOSURF ) {
@@ -474,7 +478,7 @@ void drawModel(pScene sc) {
   else
     glDisable(GL_CLIP_PLANE0);
 
-  /* draw object if static scene */
+    /* draw object if static scene */
   sstatic = view->mstate > 0 && clip->cliptr->mstate > 0;
   if ( sstatic || sc->type & S_FOLLOW ) {
     displayScene(sc,sc->mode,0);
@@ -486,6 +490,8 @@ void drawModel(pScene sc) {
     }
     /* draw data */
     if ( sstatic )  displayData(sc,mesh);
+    //drawH2O();
+
   }
   else if ( !(sc->item & S_BOX) )
     drawBox(sc,mesh,0);
@@ -546,7 +552,7 @@ void redrawMorphing(pScene sc) {
 /* animate */
 void glutIdle(void) {
   static float timePassed = 0.0;
-  static float timeRedraw = 0.02;  /*1.0 / 50.0*/
+  static float timeRedraw = 0.014;  /*1.0 / 60.0*/
   float  clk,timeElaps;
 
   clk = clock();
@@ -705,7 +711,7 @@ void redrawScene() {
 
   /* refresh screen */
   if ( saveimg && animate )
-    glFlush();
+    glutSwapBuffers();
   else
     glutSwapBuffers();
 
@@ -859,8 +865,6 @@ int createScene(pScene sc,int idmesh) {
 
   /* set window name */
   sprintf(data,"Medit - [%s] #%d",mesh->name,sc->idwin);
-  
-  //Comment to compile for web
   glutSetWindowTitle(data);
   glutSetIconTitle(data);
  
@@ -911,6 +915,9 @@ int createScene(pScene sc,int idmesh) {
   /* create display lists by geom type */
   glPolygonMode(GL_FRONT_AND_BACK,GL_LINE);
   doLists(sc,mesh);
+  
+	setupPalette(sc,mesh);
+	
   sc->glist = geomList(sc,mesh);
   sc->type |= S_FOLLOW;
 
@@ -921,7 +928,7 @@ int createScene(pScene sc,int idmesh) {
   }
 
   /* color list */
-  setupPalette(sc,mesh);
+  //setupPalette(sc,mesh);
   sc->stream = NULL;
 
   initGrafix(sc,mesh);

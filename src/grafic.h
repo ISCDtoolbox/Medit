@@ -71,7 +71,7 @@ enum {VECTOR,CONE};
 #define MAX_PRT    10
 #define MAX_LST    1024
 #define MAX_CPT    5000
-#define HSIZ       0.03
+#define HSIZ       0.05
 
     
 typedef struct sperspective {

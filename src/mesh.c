@@ -130,8 +130,8 @@ void meshBox(pMesh mesh,int bb) {
   for (k=1; k<=mesh->np; k++) {
     ppt = &mesh->point[k];
     /*if ( ppt->tag == M_UNUSED && mesh->ne )  continue;*/
-    ppt->c[0] -= mesh->xtra; 
-    ppt->c[1] -= mesh->ytra; 
+    ppt->c[0] -= mesh->xtra;
+    ppt->c[1] -= mesh->ytra;
     ppt->c[2] -= mesh->ztra;
   }
 }
@@ -161,10 +161,10 @@ int meshSurf(pMesh mesh) {
       adj  = &mesh->adja[iadr];
       for (i=0; i<4; i++)
         if ( !adj[i] ) ++mesh->nt;
-	else {
-	  pt2 = &mesh->tetra[adj[i]];
-	  if ( ptt->ref != pt2->ref && k < adj[i] ) ++mesh->nt;
-	}
+	      else {
+	        pt2 = &mesh->tetra[adj[i]];
+	        if ( ptt->ref != pt2->ref && k < adj[i] ) ++mesh->nt;
+	      }
     }
 
     /* memory alloc */

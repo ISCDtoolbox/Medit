@@ -2,15 +2,16 @@
 #include "extern.h"
 #include "sproto.h"
 
-#define MAX_PTS   100000
-#define MAX_CPT   50000
+#define MAX_PTS   30000
 #define MAX_LST   1024
 
+#define COS170  -0.98480775301221
 #define COS175  -0.996194698
 #define COS178  -0.99939083
-#define HSIZ     0.03
 #define EPST    -1.e-14
 #define EPSR     1.e+14
+#define PAS      1.e-3;
+#define EPSS     1.e-10
 
 
 extern int       reftype,refitem;
@@ -20,22 +21,21 @@ enum   {Euler=1,RK4=2};
 
 
 /* find tetra containg p, starting nsdep */
-int locateTetra(pMesh mesh,int nsdep,int base,float *p,double *cb) {
+int locateTetra(pMesh mesh,int nsdep,double *p,double *cb) {
   pTetra   pt;
   pPoint   p0,p1,p2,p3;
-  double   bx,by,bz,cx,cy,cz,dx,dy,dz,vx,vy,vz,apx,apy,apz;
-  double   epsra,vol1,vol2,vol3,vol4,dd; 
-  int     *adj,iadr,it,nsfin;
+  double   eps,vto,bx,by,bz,cx,cy,cz,dx,dy,dz,vx,vy,vz,apx,apy,apz;
+  double   vol1,vol2,vol3,vol4,dd; 
+  int     *adj,base,iadr,nsfin,nsprv;
 
-  it    = 0;
   nsfin = nsdep;
-  /*  printf("locateTetra: searching for %f %f %f\n",p[0],p[1],p[2]);*/
-  do {
-    if ( !nsfin )  return(0);
+  nsprv = nsdep;
+  base  = ++mesh->mark;
+  while ( nsfin > 0 ) {
     pt = &mesh->tetra[nsfin];
-    if ( !pt->v[0] )  return(0);
-    if ( pt->mark == base )  return(0);
+    if ( pt->mark == base )  return(nsprv);
     pt->mark = base;
+
     iadr = 4*(nsfin-1)+1;
     adj  = &mesh->adja[iadr];
     p0 = &mesh->point[pt->v[0]];
@@ -53,66 +53,88 @@ int locateTetra(pMesh mesh,int nsdep,int base,float *p,double *cb) {
     dx  = p3->c[0] - p0->c[0];
     dy  = p3->c[1] - p0->c[1];
     dz  = p3->c[2] - p0->c[2];
-
     /* test volume */
     vx  = cy*dz - cz*dy;
     vy  = cz*dx - cx*dz;
     vz  = cx*dy - cy*dx;
+    vto = bx*vx + by*vy + bz*vz;
+    eps = EPS*vto;
 
-    epsra = EPST*(bx*vx + by*vy + bz*vz);
+    /* barycentric */
     apx = p[0] - p0->c[0];
     apy = p[1] - p0->c[1];
     apz = p[2] - p0->c[2];
 
-    /* p in 2 */
+    /* p in half-space lambda_2 > 0 */
     vol2  = apx*vx + apy*vy + apz*vz;
-    if ( epsra > vol2 ) {
+    if ( vol2 < eps ) {
+      nsprv = nsfin;
       nsfin = adj[1];
-      continue;
+      if ( !nsfin ) {
+        cb[1] = 0.0;
+        nsfin = nsprv;
+      }
+      else
+        continue;
     }
-
     /* p in 3 */
     vx  = by*apz - bz*apy;
     vy  = bz*apx - bx*apz;
     vz  = bx*apy - by*apx;
     vol3 = dx*vx + dy*vy + dz*vz;
-    if ( epsra > vol3 ) {
+    if ( vol3 < eps ) {
+      nsprv = nsfin;
       nsfin = adj[2];
-      continue;
+      if ( !nsfin ) {
+        cb[2] = 0.0;
+        nsfin = nsprv;
+      }
+      else
+        continue;
     }
-    
     /* p in 4 */
     vol4 = -cx*vx - cy*vy - cz*vz;
-    if ( epsra > vol4 ) {
+    if ( vol4 < eps ) {
+      nsprv = nsfin;
       nsfin = adj[3];
-      continue;
+      if ( !nsfin ) {
+        cb[3] = 0.0;
+        nsfin = nsprv;
+      }
+      else
+        continue;
     }
-    
     /* p in 1 */
-    vol1 = -epsra * EPSR - vol2 - vol3 - vol4;
-    if ( epsra > vol1 ) {
+    vol1 = vto - vol2 - vol3 - vol4;
+    if ( vol1 < eps ) {
+      nsprv = nsfin;
       nsfin = adj[0];
-      continue;
+      if ( !nsfin ) {
+        cb[0] = 0.0;
+        nsfin = nsprv;
+      }
+      else
+        continue;
     }
-
-    dd = vol1+vol2+vol3+vol4;
-    if ( dd != 0.0 )  dd = 1.0 / dd;
-    cb[0] = vol1 * dd;
-    cb[1] = vol2 * dd;
-    cb[2] = vol3 * dd;
-    cb[3] = vol4 * dd; 
-    
+    dd = fabs(vol1+vol2+vol3+vol4);
+    if ( dd > 1.e-200 ) {
+      dd = 1.0 / dd;
+      cb[0] = fabs(vol1) * dd;
+      cb[1] = fabs(vol2) * dd;
+      cb[2] = fabs(vol3) * dd;
+      cb[3] = fabs(vol4) * dd; 
+    }
     pt->cpt++;
     return(nsfin);
   }
-  while ( ++it <= mesh->ntet );
 
-  return(0);
+  /* no need for exhaustive search */
+  return(nsprv);
 }
 
 
 /* return 1 if point in tetra, adjacent #, if not */
-int inSubTetra(pPoint pt[4],float *p,double *cb) {
+int inSubTetra(pPoint pt[4],double *p,double *cb) {
   double   bx,by,bz,cx,cy,cz,dx,dy,dz,vx,vy,vz,apx,apy,apz;
   double   epsra,vol1,vol2,vol3,vol4,dd; 
 
@@ -166,7 +188,7 @@ int inSubTetra(pPoint pt[4],float *p,double *cb) {
   return(1);
 }
 
-int locateHexa(pMesh mesh,int nsdep,int base,float *p,double *cb,pPoint pt[4]) {
+int locateHexa(pMesh mesh,int nsdep,int base,double *p,double *cb,pPoint pt[4]) {
   pHexa    ph;
   int     *adj,iadr,it,nsfin,in;
 
@@ -306,79 +328,86 @@ exit(1);
   return(0);
 }
 
-
-int locateTria(pMesh mesh,int nsdep,int base,float *p,double *cb) {
+int locateTria(pMesh mesh,int nsdep,double *p,double *cb) {
   pTriangle pt;
   pPoint    p0,p1,p2;
   double    ax,ay,bx,by,cx,cy;
-  double    epsra,aire1,aire2,aire3,dd; 
-  int      *adj,iadr,it,isign,nsfin;
+  double    aire1,aire2,aire3,dd; 
+  int      *adj,base,iadr,it,nsfin,nsprv;
+  char      isign;
 
   it    = 0;
   nsfin = nsdep;
-  if ( ddebug )  printf("locateTria: searching for %f %f\n",p[0],p[1]);
+  nsprv = -1;
+  base  = ++mesh->mark;
+  memset(cb,0,3*sizeof(double));
   do {
     pt = &mesh->tria[nsfin];
-		if ( ddebug )  printf("on est dans %d\n",nsfin);
-    if ( !pt->v[0] )  return(0);
-    if ( pt->mark == base )  return(0);
+    if ( !pt->v[0]  || (it > 0 && nsfin == nsdep) )  return(nsprv);
+    else if ( pt->mark == base )  break;
     pt->mark = base;
     iadr = 3*(nsfin-1)+1;
     adj  = &mesh->adja[iadr];
 
+    /* area of triangle */
     p0 = &mesh->point[pt->v[0]];
     p1 = &mesh->point[pt->v[1]];
     p2 = &mesh->point[pt->v[2]];
-
     ax = p1->c[0] - p0->c[0];
     ay = p1->c[1] - p0->c[1];
     bx = p2->c[0] - p0->c[0];
     by = p2->c[1] - p0->c[1];
     dd = ax*by - ay*bx;
     isign= dd > 0 ? 1 : -1;
-    epsra = isign > 0 ? EPST*dd : -(EPST*dd);
+
     /* barycentric */
     bx = p1->c[0] - p[0];
     by = p1->c[1] - p[1];
     cx = p2->c[0] - p[0];
     cy = p2->c[1] - p[1];
-    /* p in 1 */
+
+    /* p in half-plane lambda_0 > 0 */
     aire1 = isign*(bx*cy - by*cx);
-    if ( epsra > aire1 ) {
+    if ( aire1 < 0.0 ) {
+      nsprv = nsfin;
       nsfin = adj[0];
       continue;
     }
-
     ax = p0->c[0] - p[0];
     ay = p0->c[1] - p[1];
     aire2 = isign*(cx*ay - cy*ax);
-    if ( epsra > aire2 ) {
-      nsfin = adj[1];
+    if ( aire2 < 0.0 ) {
+      nsprv = nsfin;
+      nsfin = adj[1]; 
       continue;
     }
-
-    aire3 = -epsra*EPSR - aire1 - aire2;
-    if ( epsra > aire3 ) {
+    aire3 = isign*dd - aire1 - aire2;;
+    if ( aire3 < 0.0 ) {
+      nsprv = nsfin;
       nsfin = adj[2];
       continue;
     }
-
-    dd = aire1+aire2+aire3;
-    if ( dd != 0.0f )  dd = 1.0 / dd;
-    cb[0] = aire1 * dd;
-    cb[1] = aire2 * dd;
-    cb[2] = aire3 * dd;
-    
+    aire1 = max(aire1,0.0);
+    aire2 = max(aire2,0.0);
+    aire3 = max(aire3,0.0);
+    dd    = aire1 + aire2 + aire3;
+    if ( dd > 1.e-200 ) {
+      dd = 1.0 / dd;
+      cb[0] = aire1 * dd;
+      cb[1] = aire2 * dd;
+      cb[2] = aire3 * dd;
+    }
     pt->cpt++;
     return(nsfin);
   }
-  while ( ++it <= mesh->nt );
+  while ( nsfin && ++it <= mesh->nt );
 
-  return(0);
+  /* no need for exhaustive search */
+  return(nsprv > 0 ? nsprv : 0);
 }
 
 /* point in tetra */
-int inTetra(pMesh mesh,int nsdep,float *p,double *cb) {
+int inTetra(pMesh mesh,int nsdep,double *p,double *cb) {
   pTetra   pt;
   pPoint   p0,p1,p2,p3;
   double   bx,by,bz,cx,cy,cz,dx,dy,dz,vx,vy,vz,apx,apy,apz;
@@ -443,11 +472,11 @@ int inTetra(pMesh mesh,int nsdep,float *p,double *cb) {
   return(1);
 }
 
-int inHexa(pMesh mesh,int nsdep,float *p,double *cb,pPoint pt[4]) {
+int inHexa(pMesh mesh,int nsdep,double *p,double *cb,pPoint pt[4]) {
   return(0);
 }
 
-int inTria(pMesh mesh,int nsdep,float *p,double *cb) {
+int inTria(pMesh mesh,int nsdep,double *p,double *cb) {
   pTriangle  pt;
   pPoint     p0,p1,p2;
   double     ax,ay,bx,by,cx,cy;
@@ -486,7 +515,7 @@ int inTria(pMesh mesh,int nsdep,float *p,double *cb) {
   if ( epsra > aire3 )  return(0);
 
   dd = aire1+aire2+aire3;
-  if ( dd != 0.0f )  dd = 1.0 / dd;
+  if ( dd != 0.0 )  dd = 1.0 / dd;
   cb[0] = aire1 * dd;
   cb[1] = aire2 * dd;
   cb[2] = aire3 * dd;
@@ -495,28 +524,28 @@ int inTria(pMesh mesh,int nsdep,float *p,double *cb) {
   return(1);
 }
 
-
 /* return size of tetra */
 double sizeTetra(pMesh mesh,int k) {
   pTetra   pt;
   pPoint   p[4];
-  double   ax,ay,az,dd;
-  double   hmin;
-  int      i;
-  static int  idire[6][2] = {{0,1}, {0,2}, {0,3}, {1,2}, {1,3}, {2,3}};
+  double   ax,ay,az,dd,hmin;
+  char     i,j;
 
   pt = &mesh->tetra[k];
   for (i=0; i<4; i++)
     p[i] = &mesh->point[pt->v[i]];
   hmin = FLT_MAX;
-  for (i=1; i<6; i++) {
-    ax = p[idire[i][0]]->c[0] - p[idire[i][1]]->c[0];
-    ay = p[idire[i][0]]->c[1] - p[idire[i][1]]->c[1];
-    az = p[idire[i][0]]->c[2] - p[idire[i][1]]->c[2];
-    dd = ax*ax + ay*ay + az*az;
-    hmin = min(dd,hmin);
+  for (i=0; i<3; i++) {
+    for (j=i+1; j<4; j++) {
+      ax = p[j]->c[0] - p[i]->c[0];
+      ay = p[j]->c[1] - p[i]->c[1];
+      az = p[j]->c[2] - p[i]->c[2];
+      dd = ax*ax + ay*ay + az*az;
+      hmin = min(dd,hmin);
+    }
   }
-  return(sqrt(hmin));
+  hmin= sqrt(hmin);
+  return(hmin);
 }
 
 double sizeHexa(pMesh mesh,int k) {
@@ -588,7 +617,7 @@ double sizeQuad(pMesh mesh,int k) {
 double field3DInterp(pMesh mesh,int iel,double *cb,double *v) {
   pTetra     pt;
   pSolution  ps0,ps1,ps2,ps3;
-  double     dd;
+  double     dd,dd1;
 
   pt  = &mesh->tetra[iel];
   ps0 = &mesh->sol[pt->v[0]];
@@ -596,17 +625,16 @@ double field3DInterp(pMesh mesh,int iel,double *cb,double *v) {
   ps2 = &mesh->sol[pt->v[2]];
   ps3 = &mesh->sol[pt->v[3]];
 
-  v[0] = cb[0]*ps0->m[0] + cb[1]*ps1->m[0] + \
-         cb[2]*ps2->m[0] + cb[3]*ps3->m[0];
-  v[1] = cb[0]*ps0->m[1] + cb[1]*ps1->m[1] + \
-         cb[2]*ps2->m[1] + cb[3]*ps3->m[1];
-  v[2] = cb[0]*ps0->m[2] + cb[1]*ps1->m[2] + \
-         cb[2]*ps2->m[2] + cb[3]*ps3->m[2];
-  dd = sqrt(v[0]*v[0] + v[1]*v[1] + v[2]*v[2]);
-  if ( dd > 0.0f ) {
-    v[0] /= dd;
-    v[1] /= dd;
-    v[2] /= dd;
+  v[0] = cb[0]*ps0->m[0] + cb[1]*ps1->m[0] + cb[2]*ps2->m[0] + cb[3]*ps3->m[0];
+  v[1] = cb[0]*ps0->m[1] + cb[1]*ps1->m[1] + cb[2]*ps2->m[1] + cb[3]*ps3->m[1];
+  v[2] = cb[0]*ps0->m[2] + cb[1]*ps1->m[2] + cb[2]*ps2->m[2] + cb[3]*ps3->m[2];
+  dd = v[0]*v[0] + v[1]*v[1] + v[2]*v[2];
+  if ( dd > 1.0e200 ) {
+    dd  = sqrt(dd);
+    dd1 = 1.0 / dd;
+    v[0] *= dd1;
+    v[1] *= dd1;
+    v[2] *= dd1;
   }
   return(dd);
 }
@@ -614,7 +642,7 @@ double field3DInterp(pMesh mesh,int iel,double *cb,double *v) {
 /* vector interpolation */
 double vector3DInterp(pMesh mesh,pPoint pt[4],double *cb,double *v) {
   pSolution  ps0,ps1,ps2,ps3;
-  double     dd;
+  double     dd,dd1;
 
   ps0 = &mesh->sol[pt[0]-&mesh->point[0]];
   ps1 = &mesh->sol[pt[1]-&mesh->point[0]];
@@ -627,180 +655,150 @@ double vector3DInterp(pMesh mesh,pPoint pt[4],double *cb,double *v) {
          cb[2]*ps2->m[1] + cb[3]*ps3->m[1];
   v[2] = cb[0]*ps0->m[2] + cb[1]*ps1->m[2] + \
          cb[2]*ps2->m[2] + cb[3]*ps3->m[2];
-  dd = sqrt(v[0]*v[0] + v[1]*v[1] + v[2]*v[2]);
-  if ( dd > 0.0f ) {
-    v[0] /= dd;
-    v[1] /= dd;
-    v[2] /= dd;
+  dd = (v[0]*v[0] + v[1]*v[1] + v[2]*v[2]);
+  if ( dd > 1.e-200 ) {
+    dd  = sqrt(dd);
+    dd1 = 1.0 / dd;
+    v[0] *= dd1;
+    v[1] *= dd1;
+    v[2] *= dd1;
   }
   return(dd);
 }
 
-
 double field2DInterp(pMesh mesh,int iel,double *cb,double *v) {
   pTriangle  pt;
   pSolution  ps0,ps1,ps2;
-  double     dd;
+  double     dd,dd1;
 
   pt  = &mesh->tria[iel];
+  assert(pt->v[0]);
   ps0 = &mesh->sol[pt->v[0]];
   ps1 = &mesh->sol[pt->v[1]];
   ps2 = &mesh->sol[pt->v[2]];
 
   v[0] = cb[0]*ps0->m[0] + cb[1]*ps1->m[0] + cb[2]*ps2->m[0];
   v[1] = cb[0]*ps0->m[1] + cb[1]*ps1->m[1] + cb[2]*ps2->m[1];
-  v[2] = 0.0f;
-  dd = sqrt(v[0]*v[0] + v[1]*v[1]);
-  if ( dd > 0.0f ) {
-    v[0] /= dd;
-    v[1] /= dd;
+  dd   = (v[0]*v[0] + v[1]*v[1]);
+  if ( dd > 1.e-200 ) {
+    dd  = sqrt(dd);
+    dd1 = 1.0 / dd;
+    v[0] *= dd1;
+    v[1] *= dd1;
   }
   return(dd);
 }
 
 
-/* add point to display list, if needed */
-int filterPoint(pScene sc,Stream *st,float *p,ubyte color) {
-  double  norm,rgb[3],kc,ux,uy,uz,vx,vy,vz,dd;
-  int     i;
-  static double hsv[3] = { 0.0f, 1.0f, 0.80f };
+int getIso(pScene sc,double norm,double *hsv) {
+  double   kc;
+  int      i;
 
-  /* store point */
-  memcpy(st->stpt[++st->stnp],p,3*sizeof(float));
-  nbar++;
+  hsv[0] = 0.0;
+  hsv[1] = 1.0;
+  hsv[2] = 0.8;
+  if ( norm < sc->iso.val[0] )
+    norm = sc->iso.val[0];  
+  else if ( norm > sc->iso.val[MAXISO-1] )
+    norm = sc->iso.val[MAXISO-1];
 
-  /* point color */
-  norm = st->norm;
-  if ( !color ) {
-    if ( norm < sc->iso.val[0] ) 
-      norm = sc->iso.val[0];  
-    else if ( norm > sc->iso.val[MAXISO-1] )
-      norm = sc->iso.val[MAXISO-1];
-    for (i=0; i<MAXISO-1; i++)
-      if ( norm < sc->iso.val[i] )  break;
-    kc = (norm-sc->iso.val[i-1]) / (sc->iso.val[i] - sc->iso.val[i-1]);
-    st->stcol[st->stnp] = sc->iso.col[i-1]*(1.0-kc)+sc->iso.col[i]*kc;
-    st->stiso[st->stnp] = i;
-  }
-  else {
-    st->stcol[st->stnp] = sc->iso.col[MAXISO-1];
-    st->stiso[st->stnp] = MAXISO-1;
-  }
+  for (i=0; i<MAXISO-1; i++)
+    if ( norm < sc->iso.val[i] )  break;
 
-  if ( sc->mode & S_ALTITUDE )
-    st->stpt[st->stnp][2] = altcoef*norm;
-
-  if ( !color && (st->stiso[0] != st->stiso[st->stnp]) ) {
-    hsv[0] = st->stcol[st->stnp];
-    hsvrgb(hsv,rgb);
-    glColor3dv(rgb);
-    glVertex3fv(st->stpt[st->stnp]);
-
-    memcpy(st->stpt[0],st->stpt[st->stnp],3*sizeof(float));
-    st->stcol[0] = st->stcol[st->stnp];
-    st->stiso[0] = st->stiso[st->stnp];
-    st->stnp = 0;
-    return(1);
-  }
-
-  if ( st->stnp < 2 )  return(0);
-
-  /* filtering point */
-  ux = st->stpt[0][0] - st->stpt[1][0];
-  uy = st->stpt[0][1] - st->stpt[1][1];
-  uz = st->stpt[0][2] - st->stpt[1][2];
-  dd = ux*ux + uy*uy + uz*uz;
-  
-  if ( dd > 0.0 ) {  
-    dd = 1.0f / sqrt(dd);
-    ux *= dd;
-    uy *= dd;
-    uz *= dd;
-  }
-  else {
-    memcpy(st->stpt[0],st->stpt[1],2*3*sizeof(float));
-    st->stnp--;
-    return(0);
-  }
-
-  vx = st->stpt[2][0] - st->stpt[1][0];
-  vy = st->stpt[2][1] - st->stpt[1][1];
-  vz = st->stpt[2][2] - st->stpt[1][2];
-  dd = vx*vx + vy*vy + vz*vz;
-  if ( dd > 0.0 ) {
-    dd = 1.0f / sqrt(dd);
-    vx *= dd;
-    vy *= dd;
-    vz *= dd;
-  }
-  else {
-    memcpy(st->stpt[1],st->stpt[2],3*sizeof(float));
-    st->stnp--;
-    return(0);
-  }
-
-  dd = ux*vx + uy*vy + uz*vz;
-  if ( dd > COS178 ) {
-    hsv[0] = st->stcol[st->stnp];
-    hsvrgb(hsv,rgb);
-    glColor3dv(rgb);
-    glVertex3fv(st->stpt[st->stnp]);
-
-    memcpy(st->stpt[0],st->stpt[st->stnp],3*sizeof(float));
-    st->stcol[0] = st->stcol[st->stnp];
-    st->stiso[0] = st->stiso[st->stnp];
-    st->stnp = 0;
-    return(1);
-  }
-  else {
-    memcpy(st->stpt[st->stnp-1],st->stpt[st->stnp],3*sizeof(float));
-    st->stcol[st->stnp-1] = st->stcol[st->stnp];
-    st->stiso[st->stnp-1] = st->stiso[st->stnp];
-    st->stnp--;
-    return(0);
-  }
+  kc = (norm-sc->iso.val[i-1]) / (sc->iso.val[i] - sc->iso.val[i-1]);
+  hsv[0] = sc->iso.col[i-1]*(1.0-kc) + sc->iso.col[i]*kc;
+  return(i);
 }
-
 
 /* add vertex to display list */
-void addPoint(pScene sc,Stream *st,float *p,ubyte color) {
-  double  norm,rgb[3],kc;
-  int     i;
-  static double hsv[3] = { 0.0f, 1.0f, 0.80f };
+static void addPoint(pScene sc,Stream *st,double *p) {
+  double  rgb[3],hsv[3];
 
   /* point color */
-  norm = st->norm;
-  i = MAXISO-1;
-  if ( !color ) {
-    norm = st->norm;
-    if ( norm < sc->iso.val[0] )
-      norm = sc->iso.val[0];  
-    else if ( norm > sc->iso.val[MAXISO-1] )
-      norm = sc->iso.val[MAXISO-1];
-    for (i=0; i<MAXISO-1; i++)
-      if ( norm < sc->iso.val[i] )  break;
-    kc = (norm-sc->iso.val[i-1]) / (sc->iso.val[i] - sc->iso.val[i-1]);
-    hsv[0] = sc->iso.col[i-1]*(1.0-kc)+sc->iso.col[i]*kc;
+  if ( st->stnp == 1 ) {
+    st->stpt[1][0] = p[0];
+    st->stpt[1][1] = p[1];
+    st->stpt[1][2] = sc->mode & S_ALTITUDE ? altcoef*st->norm : p[2]; 
+    st->stiso[1]   = getIso(sc,st->norm,hsv);
+    st->stcol[1]   = hsv[0];
+    hsv[1] = 1.0;
+    hsv[2] = 0.8;
+    hsvrgb(hsv,rgb);
+    glColor3dv(rgb);
+    glVertex3fv(st->stpt[1]);
   }
+  else {
+    hsv[0] = st->stcol[st->stnp-1];
+    hsv[1] = 1.0;
+    hsv[2] = 0.8;
+    hsvrgb(hsv,rgb);
+    glColor3dv(rgb);
+    glVertex3fv(st->stpt[st->stnp-1]);
 
-  if ( sc->mode & S_ALTITUDE )
-    p[2] = altcoef*norm;
-
-  hsvrgb(hsv,rgb);
-  glColor3dv(rgb);
-  glVertex3fv(p);
-  st->stnp = 0;
-  memcpy(st->stpt[st->stnp],p,3*sizeof(float));
-  st->stcol[st->stnp] = hsv[0];
-  st->stiso[st->stnp] = i;
-  st->stnp++;
+    memcpy(st->stpt[1],st->stpt[st->stnp],3*sizeof(float));
+    st->stiso[1] = st->stiso[st->stnp];
+    st->stcol[1] = st->stcol[st->stnp];
+    st->stnp = 1;
+  }
 }
 
+/* add point to display list, if needed */
+int filterPoint(pScene sc,Stream *st,double *p,ubyte color) {
+  double  hsv[3],ux,uy,uz,vx,vy,vz,dd;
 
-int nxtPoint3D(pMesh mesh,int nsdep,float *p,float step,double *v) {
+  /* filtering new point vs. previous */
+  ux = p[0] - st->stpt[st->stnp][0];
+  uy = p[1] - st->stpt[st->stnp][1];
+  uz = p[2] - st->stpt[st->stnp][2];
+  dd = ux*ux + uy*uy + uz*uz;
+  if ( dd < EPS2 )  return(0);
+  dd = 1.0 / sqrt(dd);
+  ux *= dd;
+  uy *= dd;
+  uz *= dd;
+
+  /* store new point */
+  st->stnp++;
+  st->stpt[st->stnp][0] = p[0];
+  st->stpt[st->stnp][1] = p[1];
+  st->stpt[st->stnp][2] = sc->mode & S_ALTITUDE ? altcoef*st->norm : p[2]; 
+  st->stiso[st->stnp]   = getIso(sc,st->norm,hsv);
+  st->stcol[st->stnp]   = hsv[0];
+
+  /* color related to modulus */
+  if ( !color && st->stiso[st->stnp] != st->stiso[st->stnp-1] ) {
+    addPoint(sc,st,p);
+    return(1);
+  }
+
+  if ( st->stnp == 2 )  return(0);
+
+  /* filtering point */
+  vx = st->stpt[1][0] - st->stpt[2][0];
+  vy = st->stpt[1][1] - st->stpt[2][1];
+  vz = st->stpt[1][2] - st->stpt[2][2];
+  dd = vx*vx + vy*vy + vz*vz;
+  dd = 1.0 / sqrt(dd);
+  vx *= dd;
+  vy *= dd;
+  vz *= dd;
+  dd = ux*vx + uy*vy + uz*vz;
+  /* local curvature estimate */
+  if ( dd > COS178 ) {
+    addPoint(sc,st,p);
+    return(1);
+  }
+  memcpy(st->stpt[2],st->stpt[3],3*sizeof(float));
+  st->stcol[2] = st->stcol[3];
+  st->stiso[2] = st->stiso[3];
+  st->stnp = 2;
+  return(0);
+}
+
+int nxtPoint3D(pMesh mesh,int nsdep,double *p,double step,double *v) {
   pTetra     pt;
   double     norm,h6,cb[4],v1[3],v2[3],v3[3];
-  float      xp1[3],xp2[3],xp3[3];
+  double     xp1[3],xp2[3],xp3[3];
   int        k;
 
   /* 4th order Runge-Kutta */
@@ -808,7 +806,7 @@ int nxtPoint3D(pMesh mesh,int nsdep,float *p,float step,double *v) {
   xp1[1] = p[1] + 0.5*step*v[1];
   xp1[2] = p[2] + 0.5*step*v[2];
 
-  k = locateTetra(mesh,nsdep,++mesh->mark,xp1,cb);
+  k = locateTetra(mesh,nsdep,xp1,cb);
   if ( !k )  return(0);
   norm = field3DInterp(mesh,k,cb,v1);
   pt = &mesh->tetra[k];
@@ -818,7 +816,7 @@ int nxtPoint3D(pMesh mesh,int nsdep,float *p,float step,double *v) {
   xp2[1] = p[1] + 0.5*step*v1[1];
   xp2[2] = p[2] + 0.5*step*v1[2];
 
-  k = locateTetra(mesh,k,++mesh->mark,xp2,cb);
+  k = locateTetra(mesh,k,xp2,cb);
   if ( !k )  return(0);
   norm = field3DInterp(mesh,k,cb,v2);
   pt = &mesh->tetra[k];
@@ -828,7 +826,7 @@ int nxtPoint3D(pMesh mesh,int nsdep,float *p,float step,double *v) {
   xp3[1] = p[1] + step*v2[1];
   xp3[2] = p[2] + step*v2[2];
 
-  k = locateTetra(mesh,k,++mesh->mark,xp3,cb);
+  k = locateTetra(mesh,k,xp3,cb);
   if ( !k )  return(0);
   norm = field3DInterp(mesh,k,cb,v3);
   pt = &mesh->tetra[k];
@@ -839,20 +837,20 @@ int nxtPoint3D(pMesh mesh,int nsdep,float *p,float step,double *v) {
   p[1] += h6 * (v[1] + 2*(v1[1] + v2[1]) + v3[1]);
   p[2] += h6 * (v[2] + 2*(v1[2] + v2[2]) + v3[2]);
 
-  return(1);
+  return(k);
 }
 
-int nxtPoint2D(pMesh mesh,int nsdep,float *p,float step,double *v) {
+static int nxtPoint2D(pMesh mesh,int nsdep,double *p,double step,double *v) {
   pTriangle  pt;
-  double     norm,h6,cb[3],v1[3],v2[3],v3[3];
-  float      xp1[3],xp2[3],xp3[3];
+  double     norm,h6,cb[3],v1[2],v2[2],v3[2];
+  double     xp1[2],xp2[2],xp3[2];
   int        k;
 
   /* 4th order Runge-Kutta */
   xp1[0] = p[0] + 0.5*step*v[0];
   xp1[1] = p[1] + 0.5*step*v[1];
 
-  k = locateTria(mesh,nsdep,++mesh->mark,xp1,cb);
+  k = locateTria(mesh,nsdep,xp1,cb);
   if ( !k )  return(0);
   norm = field2DInterp(mesh,k,cb,v1);
   pt = &mesh->tria[k];
@@ -861,7 +859,7 @@ int nxtPoint2D(pMesh mesh,int nsdep,float *p,float step,double *v) {
   xp2[0] = p[0] + 0.5*step*v1[0];
   xp2[1] = p[1] + 0.5*step*v1[1];
 
-  k = locateTria(mesh,k,++mesh->mark,xp2,cb);
+  k = locateTria(mesh,k,xp2,cb);
   if ( !k )  return(0);
   norm = field2DInterp(mesh,k,cb,v2);
   pt = &mesh->tria[k];
@@ -870,7 +868,7 @@ int nxtPoint2D(pMesh mesh,int nsdep,float *p,float step,double *v) {
   xp3[0] = p[0] + step*v2[0];
   xp3[1] = p[1] + step*v2[1];
 
-  k = locateTria(mesh,k,++mesh->mark,xp3,cb);
+  k = locateTria(mesh,k,xp3,cb);
   if ( !k )  return(0);
   norm = field2DInterp(mesh,k,cb,v3);
   pt = &mesh->tria[k];
@@ -880,9 +878,8 @@ int nxtPoint2D(pMesh mesh,int nsdep,float *p,float step,double *v) {
   p[0] += h6 * (v[0] + 2*(v1[0] + v2[0]) + v3[0]);
   p[1] += h6 * (v[1] + 2*(v1[1] + v2[1]) + v3[1]);
 
-  return(1);
+  return(k);
 }
-
 
 /* read streamlines origins */
 int parseStream(pScene sc,pMesh mesh) {
@@ -900,7 +897,7 @@ int parseStream(pScene sc,pMesh mesh) {
   sprintf(data,"%s.iso",tmp);
   in = fopen(data,"r");
   if ( !in ) {
-    sscanf(data,"DEFAULT.iso");
+    sprintf(data,"DEFAULT.iso");
     in = fopen(data,"r");
     if ( !in )  return(0);
   }
@@ -915,21 +912,21 @@ int parseStream(pScene sc,pMesh mesh) {
     if ( !strcmp(key,"nblines") ) {
       fscanf(in,"%d",&nbp);
       st->nbstl = nbp;
-      if ( mesh->dim == 3 )
+      if ( mesh->dim == 3 ) {
         for (k=1; k<=3*st->nbstl; k+=3) {
           ret = fscanf(in,"%f %f %f\n",&x,&y,&z);
-printf("x %f %f %f\n",x,y,z);
           st->listp[k]   = x - mesh->xtra;
           st->listp[k+1] = y - mesh->ytra;
           st->listp[k+2] = z - mesh->ztra;
-printf("x %f %f %f\n",st->listp[k],st->listp[k+1],st->listp[k+2]);
         }
-      else
+      }
+      else {
         for (k=1; k<=2*st->nbstl; k+=2) {
           ret = fscanf(in,"%f %f\n",&x,&y);
           st->listp[k]   = x - mesh->xtra;
           st->listp[k+1] = y - mesh->ytra;
         }
+      }
     }
     else if ( !strcmp(key,"euler") ) {
       st->typtrack = Euler;
@@ -960,115 +957,150 @@ printf("x %f %f %f\n",st->listp[k],st->listp[k+1],st->listp[k+2]);
     fprintf(stderr,"   ## No data found.\n");
     return(0);
   }
-k = 1;
-/*printf("fin proc %f %f %f\n",sc->stream->listp[k],sc->stream->listp[k+1],sc->stream->listp[k+2]);*/
 
   return(1);
 }
 
+static void savePart(pMesh mesh,double *pts,int nbp) {
+  FILE    *out;
+  int      k;
+
+  out  = fopen("particules.dat","a+");
+  if ( !out )  return;
+  fprintf(out,"# streamline\n");
+  fprintf(out,"%d\n",nbp);
+  for (k=0; k<nbp; k++) {
+    fprintf(out,"%g %g %g %g\n",
+    pts[4*k+0]+mesh->xtra,pts[4*k+1]+mesh->ytra,pts[4*k+2]+mesh->ztra,pts[4*k+3]);
+  }
+  fprintf(out,"\n");
+  fclose(out);
+}
+
 
 /* build lists for streamlines */
-int listTetraStream(pScene sc,pMesh mesh,float *pp,int squiet) {
+int listTetraStream(pScene sc,pMesh mesh,float *pp,int iel,double *cb,char squiet) {
   pTetra     pt;
+  pPoint     ppt;
   pStream    st;
-  double     dd,cb[4],cbdep[4],v[4],vdep[4],sizedep,normdep;
-  float      step,p[3],ox,oy,oz,ldt;
-  int        i,k,exh,depart,nsdep,nsfin,nsold,nbp,maxpts;
-  clock_t    ct;
-  FILE      *out;
+  double     *pts,cbdep[4],v[3],vdep[3],dd,sizedep,normdep,step;
+  double     p[3],ox,oy,oz,ldt;
+  int        k,ier,curiel,oldiel,saviel,nbp,nbs,maxpts;
+  char       i;
+  static char  frst = 1;
 
   /* default */
   if ( !mesh->ntet )  return(0);
-  else if ( egal(sc->iso.val[0],sc->iso.val[MAXISO-1]) )  return(0);
-  if ( ddebug ) printf("\n create streamlines list / TETRA\n");
+  if ( ddebug && !squiet ) printf("create streamlines list / TETRA\n");
+  if ( egal(sc->iso.val[0],sc->iso.val[MAXISO-1]) )  return(0);
+  curiel = iel;
 
-  if ( !squiet && !ddebug ) {
+  if ( frst ) {
+    mesh->mark = 1;
+    for (k=1; k<=mesh->ntet; k++) {
+      pt = &mesh->tetra[k];
+      if ( !pt->v[0] )  continue;
+      pt->cpt  = 0;
+      pt->mark = mesh->mark;
+      /* set seed for tetra */
+      for (i=0; i<4; i++) {
+        ppt = &mesh->point[pt->v[i]];
+        if ( !ppt->tmp )  ppt->tmp = k;
+      }
+    }
+  }
+  if ( !squiet ) {
     fprintf(stdout," Building streamline(s)");
     fflush(stdout);
   }
-  ct = clock();
-
   /* build display list */
   st = sc->stream;
   if ( st->nbstl > MAX_LST-1 )  return(0);
-  sc->slist[st->nbstl] = glGenLists(1);
-  glNewList(sc->slist[st->nbstl],GL_COMPILE);
-  if ( glGetError() )  return(0);
-
-  k = st->nbstl*3 + 1;
+  k = 3*st->nbstl;
   st->listp[k+0] = pp[0];
   st->listp[k+1] = pp[1];
   st->listp[k+2] = pp[2];
-  st->nbstl++;
-/*printf("\n%d: pp = %f %f %f\n",st->nbstl,st->listp[k+0],st->listp[k+1],st->listp[k+2]);*/
 
-  maxpts = max(MAX_PTS,5*mesh->ntet);
-  glLineWidth(2.0);
-
-  /* compute streamline */
-  nbp   = 0;
-  exh   = 0;
-  nsdep = mesh->ntet / 2;
-  step  = 0.0;
-  nbar  = 0;
-  if ( ddebug ) 
-    printf("   start point %d: %f %f %f\n",3*k/3,st->listp[k],st->listp[k+1],st->listp[k+2]);
-
-  for (i=1; i<mesh->ntet; i++) {
-    pt = &mesh->tetra[i];
-    pt->cpt = 0;
+  /* find enclosing tetra */
+  p[0] = pp[0];
+  p[1] = pp[1];
+  p[2] = pp[2];
+  if ( reftype == LPoint && refitem > 0 ) {
+    curiel = mesh->point[refitem].tmp;
   }
-
-  /* find enclosing tet */
-  memcpy(p,pp,3*sizeof(float));
-  depart = locateTetra(mesh,nsdep,++mesh->mark,p,cb);
-  if ( !depart ) {
-    for (depart=1; depart<=mesh->ntet; depart++) {
-      pt = &mesh->tetra[depart];
-      if ( pt->mark != mesh->mark && inTetra(mesh,depart,p,cb) )
-        break;
-    }
-    if ( depart > mesh->ntet ) {
-      glEndList();
-      return(0);
+  /* start from given reference */
+  if ( !iel ) {
+    curiel = locateTetra(mesh,curiel,p,cb);
+    if ( !curiel ) {
+      for (curiel=1; curiel<=mesh->ntet; curiel++) {
+        pt = &mesh->tetra[curiel];
+        if ( pt->v[0] && inTetra(mesh,curiel,p,cb) )  break;
+      }
+      if ( curiel > mesh->ntet ) {
+        st->nbstl--;
+        frst = 1-frst;
+        return(0);
+      }
     }
   }
 
-  st->norm = field3DInterp(mesh,depart,cb,v);
+  st->norm = field3DInterp(mesh,curiel,cb,v);
   memcpy(cbdep,cb,4*sizeof(double));
-  memcpy(vdep,v,4*sizeof(double));
-  st->size = sizeTetra(mesh,depart);
+  memcpy(vdep,v,3*sizeof(double));
+  st->size = sizeTetra(mesh,curiel);
   sizedep  = st->size;
   normdep  = st->norm;
+  if ( st->norm < EPSS )  return(0);
   ldt      = 0.0;
-
-  if ( st->size == 0.0 )
-    step = EPS*sc->dmax;
-  else
-    step = HSIZ * min(st->size,st->norm);
-
-  /* build display list incrementally */
-  nsdep = nsold = depart;
-  glBegin(GL_LINE_STRIP);
-  addPoint(sc,st,p,0);
-  nbp++;
-
+  step     = 0.05 * st->size;
+  
   if ( sc->par.maxtime < FLT_MAX ) {
     sc->par.cumtim = sc->par.timdep;
-    step = min(0.05*sc->par.dt,step);
-    out  = fopen("particules.dat","a+");
-    assert(out);
-    fprintf(out,"\n%8.2f  %f %f %f\n",
-            sc->par.cumtim,p[0]+mesh->xtra,p[1]+mesh->ytra,p[2]+mesh->ztra);
+    step = min(0.02*sc->par.dt,step);
+  }
+  frst = 1-frst;
+
+  /* build display list incrementally */
+  sc->slist[st->nbstl] = glGenLists(1);
+  glNewList(sc->slist[st->nbstl],GL_COMPILE);
+  if ( glGetError() )  return(0);
+  glLineWidth(1.3);
+
+  st->nbstl++;
+  maxpts = max(MAX_PTS,5*mesh->ntet) / 2;
+  saviel = oldiel = curiel;
+  st->typtrack = RK4;
+  st->stnp = 1;
+  nbp = 0;
+
+  /* memory allocation */
+  if ( ddebug ) {
+    pts = (double*)calloc(4*maxpts+1,sizeof(double));
+    assert(pts);
   }
 
+  glBegin(GL_LINE_STRIP);
+  addPoint(sc,st,p);
+  if ( ddebug ) {
+    pts[4*nbp+0] = p[0];
+    pts[4*nbp+1] = p[1];
+    pts[4*nbp+2] = p[2];
+    pts[4*nbp+3] = st->norm;
+  }
+  nbp++;
+
+  pt = &mesh->tetra[curiel];
+  pt->cpt = 0;
   do {
     ox = p[0];
     oy = p[1];
     oz = p[2];
 
     /* move to next point */
-    if ( st->typtrack == Euler || !nxtPoint3D(mesh,nsdep,p,step,v) ) {
+    if ( st->typtrack == RK4 ) {
+      curiel = nxtPoint3D(mesh,curiel,p,step,v);
+    }
+    if ( st->typtrack == Euler || !curiel ) {
       p[0] += step*v[0];
       p[1] += step*v[1];
       p[2] += step*v[2];
@@ -1084,124 +1116,143 @@ int listTetraStream(pScene sc,pMesh mesh,float *pp,int squiet) {
       ldt += dd;
       sc->par.cumtim += dd;
       if ( sc->par.cumtim  > sc->par.maxtime )  break;
-      
-      if ( ldt > sc->par.dt  ) {
-        fprintf(out,"%8.2f  %f %f %f\n",
-	        sc->par.cumtim,p[0]+mesh->xtra,p[1]+mesh->ytra,p[2]+mesh->ztra);
-    	  ldt = fabs(sc->par.dt - ldt);
-      }
     }
-
-    /* find tet containing p */
-    nsfin = locateTetra(mesh,nsdep,++mesh->mark,p,cb);
-    if ( !nsfin )  break;
-    nsdep = nsfin;
-    pt = &mesh->tetra[nsdep];
+    curiel = locateTetra(mesh,curiel,p,cb);
+    if ( !curiel )  break;
+    pt = &mesh->tetra[curiel];
     if ( pt->cpt > MAX_CPT )  break;
 
     /* adjust local stepsize */
-    if ( nsdep != nsold ) {
-      st->size = sizeTetra(mesh,nsdep);
-      nsold = nsdep;
+    if ( curiel != oldiel ) {
+      st->size = sizeTetra(mesh,curiel);
+      oldiel = curiel;
+      step = 0.05 * st->size;
     }
-
     /* vector field interpolation */
-    st->norm = field3DInterp(mesh,nsdep,cb,v);
-    step     = HSIZ*min(st->size,st->norm);
+    st->norm = field3DInterp(mesh,curiel,cb,v);
+    if ( st->norm < EPSS )  break;
+
     if ( sc->par.maxtime < FLT_MAX )
       step = min(0.05*sc->par.dt,step);
-    if ( step == 0.0 )  break;
-
-    nbp += filterPoint(sc,st,p,0);
+    if ( nbp > 10 ) {
+      /* check if circling around point */
+      dd = (p[0]-pp[0])*(p[0]-pp[0]) + (p[1]-pp[1])*(p[1]-pp[1]) + (p[2]-pp[2])*(p[2]-pp[2]);
+      if ( dd < EPSS*EPSS )  break;
+    }
+    ier = filterPoint(sc,st,p,0);
+    if ( ddebug && ier ) {
+      pts[4*nbp+0] = p[0];
+      pts[4*nbp+1] = p[1];
+      pts[4*nbp+2] = p[2];
+      pts[4*nbp+3] = st->norm;
+    }
+    nbp += ier;
   }
   while ( nbp < maxpts );
-  addPoint(sc,st,p,0);
+  if ( curiel ) {
+    addPoint(sc,st,p);
+    if ( ddebug ) {
+      pts[4*nbp+0] = p[0];
+      pts[4*nbp+1] = p[1];
+      pts[4*nbp+2] = p[2];
+      pts[4*nbp+3] = st->norm;      
+    }
+    nbp++;
+  }
   glEnd();
-	
-  if ( nbp >= maxpts || sc->par.maxtime < FLT_MAX ) {
-    glLineWidth(1.0);
+  if ( sc->par.maxtime < FLT_MAX ) {
     glEndList();
-    if ( !squiet && !ddebug ) {
-      fprintf(stdout,": %d (%d, %.2f) / %d lines",
-              nbar,nbp,(float)nbp/nbar,k/3);
-      ct = difftime(clock(),ct);
-      fprintf(stdout," %6.2f sec.\n",ct);
-    }
-    if ( sc->par.maxtime < FLT_MAX ) {
-      fprintf(out,"%8.2f  %f %f %f\n",
-              sc->par.cumtim,p[0]+mesh->xtra,p[1]+mesh->ytra,p[2]+mesh->ztra);
-      fclose(out);
-    }
+    if ( !squiet )  fprintf(stdout,": %d sample(s) / %d line(s)\n",nbp,st->nbstl);
     return(1);
   }
 
   /* reverse orientation */
-  memcpy(p,pp,3*sizeof(float));
+  p[0] = pp[0];
+  p[1] = pp[1];
+  p[2] = pp[2];
   memcpy(cb,cbdep,4*sizeof(double));
-  memcpy(v,vdep,4*sizeof(double));
+  memcpy(v,vdep,3*sizeof(double));
   st->norm = normdep;
   st->size = sizedep;
-  if ( st->size == 0.0 )
-    step = EPS * sc->dmax;
-  else
-    step = HSIZ * min(st->size,st->norm);
+	st->stnp = 1;
+  step = -0.05 * st->size;
 
   /* build display list incrementally */
-  nsdep = nsold = depart;
+  curiel = oldiel = saviel;
+  nbs = nbp;
+  nbp = 1;
   glBegin(GL_LINE_STRIP);
-  addPoint(sc,st,p,0);
+  addPoint(sc,st,p);
+  if ( ddebug ) {
+    pts[4*nbp+0] = p[0];
+    pts[4*nbp+1] = p[1];
+    pts[4*nbp+2] = p[2];
+    pts[4*nbp+3] = st->norm;      
+  }
   nbp++;
 
   do {
     /* move to next point */
-    if ( st->typtrack == Euler || !nxtPoint3D(mesh,nsdep,p,-step,v) ) {
-      p[0] -= step*v[0];
-      p[1] -= step*v[1];
-      p[2] -= step*v[2];
+    if ( st->typtrack == RK4 ) {
+      curiel = nxtPoint3D(mesh,curiel,p,step,v);
+    }
+    if ( st->typtrack == Euler || !curiel ) {
+      p[0] += step*v[0];
+      p[1] += step*v[1];
+      p[2] += step*v[2];
     }
     if ( p[0]<st->xmin || p[1]<st->ymin || p[2]<st->zmin ||
          p[0]>st->xmax || p[1]>st->ymax || p[2]>st->zmax )
       break;
-
-    /* find tet containing p */
-    nsfin = locateTetra(mesh,nsdep,++mesh->mark,p,cb);
-    if ( !nsfin )  break;
-    nsdep = nsfin;
-    pt = &mesh->tetra[nsdep];
+    curiel = locateTetra(mesh,curiel,p,cb);
+    if ( !curiel )  break;
+    pt = &mesh->tetra[curiel];
     if ( pt->cpt > MAX_CPT )  break;
 
     /* adjust local stepsize */
-    if ( nsdep != nsold ) {
-      st->size = sizeTetra(mesh,nsdep);
-      nsold = nsdep;
+    if ( curiel != oldiel ) {
+      st->size = sizeTetra(mesh,curiel);
+      oldiel = curiel;
+      step = -0.05 * st->size;
     }
-
     /* vector field interpolation */
-    st->norm = field3DInterp(mesh,nsdep,cb,v);
-    step = HSIZ * min(st->size,st->norm);
-    if ( step == 0.0 )  break;
-
-    nbp += filterPoint(sc,st,p,0);
+    st->norm = field3DInterp(mesh,curiel,cb,v);
+    if ( st->norm < EPSS )  break;
+    else if ( nbp > 10 ) {
+      dd = (p[0]-pp[0])*(p[0]-pp[0]) + (p[1]-pp[1])*(p[1]-pp[1]) + (p[2]-pp[2])*(p[2]-pp[2]);
+      if ( dd < EPSS*EPSS )  break;
+    }
+    ier = filterPoint(sc,st,p,0);
+    if ( ddebug && ier ) {
+      pts[4*nbp+0] = p[0];
+      pts[4*nbp+1] = p[1];
+      pts[4*nbp+2] = p[2];
+      pts[4*nbp+3] = st->norm;      
+    }
+    nbp += ier;
   }
   while ( nbp < maxpts );
-  addPoint(sc,st,p,0);
+  if ( curiel ) {
+    addPoint(sc,st,p);
+    if ( ddebug ) {
+      pts[4*nbp+0] = p[0];
+      pts[4*nbp+1] = p[1];
+      pts[4*nbp+2] = p[2];
+      pts[4*nbp+3] = st->norm;     
+    }
+    nbp++;
+  }
   glEnd();
-  glLineWidth(1.0);
   glEndList();
 
-  if ( !nbp ) {
-    st->nbstl--;
-    if ( !squiet && !ddebug )  fprintf(stdout,"..empty\n");
-    return(0);
-  }
+  if ( nbp+nbs > 0 && !squiet )
+    fprintf(stdout,": %d sample(s) / %d line(s)\n",nbp+nbs,st->nbstl);
 
-  if ( !squiet && !ddebug ) {  
-    if ( nbar )
-      fprintf(stdout,": %d (%d, %.2f) / %d lines",nbar,nbp,(float)nbp/nbar,k/3);
-    ct = difftime(clock(),ct);
-    fprintf(stdout," %6.2f sec.\n",ct);
+  /* save paticules.dat */
+  if ( ddebug) {
+    if ( nbp > 2 )  savePart(mesh,pts,nbp);
+    free(pts);
   }
-
   return(1);
 }
 
@@ -1211,7 +1262,7 @@ int listHexaStream(pScene sc,pMesh mesh,float *pp,int squiet) {
   pPoint     pt[4];
   pStream    st;
   double     cbdep[4],cb[4],v[6],vdep[6],sizedep,normdep;
-  float      step,p[3];
+  double     step,p[3];
   int        i,k,exh,depart,nsdep,nsfin,nsold,nbp,maxpts;
   mytime     tt;
 
@@ -1258,7 +1309,9 @@ int listHexaStream(pScene sc,pMesh mesh,float *pp,int squiet) {
   }
 
   /* find enclosing tet */
-  memcpy(p,pp,3*sizeof(float));
+  p[0] = pp[0];
+  p[1] = pp[1];
+  p[2] = pp[2];
   depart = locateHexa(mesh,nsdep,++mesh->mark,p,cb,pt);
 printf("DEPART %d\n",depart);
 ph = &mesh->hexa[depart];
@@ -1288,7 +1341,7 @@ ph->v[0],ph->v[1],ph->v[2],ph->v[3],ph->v[4],ph->v[5],ph->v[6],ph->v[7]);
   /* build display list incrementally */
   nsdep = nsold = depart;
   glBegin(GL_LINE_STRIP);
-  addPoint(sc,st,p,0);
+  addPoint(sc,st,p);
   nbp++;
 
   do {
@@ -1353,7 +1406,7 @@ ph->v[0],ph->v[1],ph->v[2],ph->v[3],ph->v[4],ph->v[5],ph->v[6],ph->v[7]);
   /* build display list incrementally */
   nsdep = nsold = depart;
   glBegin(GL_LINE_STRIP);
-  addPoint(sc,st,p,0);
+  addPoint(sc,st,p);
   nbp++;
 
   do {
@@ -1385,7 +1438,7 @@ ph->v[0],ph->v[1],ph->v[2],ph->v[3],ph->v[4],ph->v[5],ph->v[6],ph->v[7]);
     st->norm = vector3DInterp(mesh,pt,cb,v);
     if ( st->norm < EPS*step )   break;
     step = min(step,st->norm);
-    if ( step == 0.0f )  break; /*step = 1.e-06 * sc->dmax;*/
+    if ( step == 0.0 )  break; /*step = 1.e-06 * sc->dmax;*/
 
     nbp += filterPoint(sc,st,p,0);
   }
@@ -1422,14 +1475,15 @@ ph->v[0],ph->v[1],ph->v[2],ph->v[3],ph->v[4],ph->v[5],ph->v[6],ph->v[7]);
   return(1);
 }
 
-
-int listTriaStream(pScene sc,pMesh mesh,float *pp) {
+/* build 2d streamlines given starting point pp*/
+int listTriaStream(pScene sc,pMesh mesh,float *pp,int squiet) {
   pTriangle  pt;
+  pPoint     ppt;
   pStream    st;
-  double     dd,cb[3],cbdep[3],v[3],vdep[3],sizedep,normdep,step;
-  float      p[3],ox,oy,ldt;
-  int        i,k,exh,depart,nsdep,nsfin,nsold,nbp,maxpts;
-  clock_t    ct;
+  double     cb[3],cbdep[3],v[2],vdep[2],dd,sizedep,normdep,step;
+  double     p[3],ox,oy,ldt;
+  int        k,curiel,oldiel,saviel,nbp,nbs,maxpts;
+  char       i;
   FILE      *out;
 
   /* default */
@@ -1437,94 +1491,92 @@ int listTriaStream(pScene sc,pMesh mesh,float *pp) {
   if ( ddebug ) printf("create streamlines / TRIA\n");
   if ( egal(sc->iso.val[0],sc->iso.val[MAXISO-1]) )  return(0);
 
-  fprintf(stdout," Building streamline(s)");
-  fflush(stdout);
-  ct = clock();
-
+  mesh->mark = 1;
+  for (k=1; k<=mesh->nt; k++) {
+    pt = &mesh->tria[k];
+    if ( !pt->v[0] )  continue;
+    pt->cpt  = 0;
+    pt->mark = mesh->mark;
+    /* seed for tria */
+    for (i=0; i<3; i++) {
+      ppt = &mesh->point[pt->v[i]];
+      if ( !ppt->tmp )  ppt->tmp = k;
+    }
+  }
+  if ( !squiet ) {
+    fprintf(stdout," Building streamline(s)");
+    fflush(stdout);
+  }
   /* build display list */
   st = sc->stream;
   if ( st->nbstl > MAX_LST-1 )  return(0);
-  sc->slist[st->nbstl] = glGenLists(1);
-  glNewList(sc->slist[st->nbstl],GL_COMPILE);
-  if ( glGetError() )  return(0);
-
-  st->nbstl++;
-  k = st->nbstl*3;
-  st->listp[k]   = pp[0];
+  k = 3*st->nbstl;
+  st->listp[k+0] = pp[0];
   st->listp[k+1] = pp[1];
   st->listp[k+2] = pp[2];
 
-  maxpts = max(MAX_PTS,5*mesh->nt);
-  glLineWidth(2.0);
-
-  /* compute streamlines */
-  nbp   = 0;
-  exh   = 0;
-  nsdep = mesh->nt / 2;
-  step  = 0.0;
-  nbar  = 0;
-  if ( ddebug )
-    printf("   start point %d: %f %f\n",3*k/3,st->listp[k]+mesh->xtra,st->listp[k+1]+mesh->ytra);
-
-  for (i=1; i<=mesh->nt; i++) {
-    pt = &mesh->tria[i];
-    pt->cpt = 0;
-  }
-
   /* find enclosing triangle */
-  memcpy(p,pp,3*sizeof(float));
-  depart = locateTria(mesh,nsdep,++mesh->mark,p,cb);
-  if ( !depart ) {
-    if ( ddebug )  printf("exhaustif search\n");
-    for (depart=1; depart<=mesh->nt; depart++) {
-      pt = &mesh->tria[depart];
-      if ( pt->mark != mesh->mark && inTria(mesh,depart,p,cb) ) {
-				if ( ddebug )  printf("trouve dans %d\n",depart);
-        break;
-      }
+  p[0] = pp[0];
+  p[1] = pp[1];
+  p[2] = 0.0;
+  if ( reftype == LPoint && refitem > 0 )
+    curiel = mesh->point[refitem].tmp;
+  else
+    curiel = 1;
+  curiel = locateTria(mesh,curiel,p,cb);
+  if ( !curiel ) {
+    for (curiel=1; curiel<=mesh->nt; curiel++) {
+      pt = &mesh->tria[curiel];
+      if ( pt->v[0] && inTria(mesh,curiel,p,cb) )  break;
     }
-    if ( depart > mesh->nt ) {
+    if ( curiel > mesh->nt ) {
       st->nbstl--;
-      glEndList();
-      glLineWidth(1.0);
-      fflush(stdout);
       return(0);
     }
   }
-
-  st->norm = field2DInterp(mesh,depart,cb,v);
+  st->norm = field2DInterp(mesh,curiel,cb,v);
   memcpy(cbdep,cb,3*sizeof(double));
-  memcpy(vdep,v,3*sizeof(double));
-  st->size   = sizeTria(mesh,depart);
-  sizedep    = st->size;
-  normdep    = st->norm;
-  ldt        = 0.0;
-
-  if ( st->size == 0.0 )
-    step = EPS * sc->dmax;
-  else 
-    step = HSIZ * min(st->size,st->norm);
-
-  /* build display list incrementally */
-  nsdep = nsold = depart;
-  glBegin(GL_LINE_STRIP);
-  addPoint(sc,st,p,0);
-  nbp++;
+  memcpy(vdep,v,2*sizeof(double));
+  st->size = sizeTria(mesh,curiel);
+  sizedep  = st->size;
+  normdep  = st->norm;
+  ldt  = 0.0;
+  step = 0.05 * st->size;
 
   if ( sc->par.maxtime < FLT_MAX ) {
     sc->par.cumtim = sc->par.timdep;
-    step = min(0.05*sc->par.dt,step);
+    step = min(0.02*sc->par.dt,step);
     out  = fopen("particules.dat","a+");
     assert(out);
     fprintf(out,"\n%8.2f  %f %f\n",sc->par.cumtim,p[0]+mesh->xtra,p[1]+mesh->ytra);
   }
 
+  /* build display list incrementally */
+  sc->slist[st->nbstl] = glGenLists(1);
+  glNewList(sc->slist[st->nbstl],GL_COMPILE);
+  if ( glGetError() )  return(0);
+  glLineWidth(1.0);
+
+  st->nbstl++;
+  maxpts = max(MAX_PTS,5*mesh->nt) / 2;
+  saviel = oldiel = curiel;
+  nbp = 1;
+  st->typtrack = RK4;
+  st->stnp = 1;
+
+  glBegin(GL_LINE_STRIP);
+  addPoint(sc,st,p);
+  pt = &mesh->tria[curiel];
+  pt->cpt = 0;
   do {
     ox = p[0];
     oy = p[1];
 
     /* move to next point */
-    if ( st->typtrack == Euler || !nxtPoint2D(mesh,nsdep,p,step,v) ) {
+    if ( st->typtrack == RK4 ) {
+      curiel = nxtPoint2D(mesh,curiel,p,step,v);
+    }
+    if ( st->typtrack == Euler || !curiel ) {
       p[0] += step*v[0];
       p[1] += step*v[1];
     }
@@ -1538,126 +1590,113 @@ int listTriaStream(pScene sc,pMesh mesh,float *pp) {
       sc->par.cumtim += dd;
       if ( sc->par.cumtim >= sc->par.maxtime )  break;
       if ( ldt > sc->par.dt ) {
-        fprintf(out,"%8.2f  %f %f\n",
-                sc->par.cumtim,p[0]+mesh->xtra,p[1]+mesh->ytra);
+        fprintf(out,"%8.2f  %f %f\n",sc->par.cumtim,p[0]+mesh->xtra,p[1]+mesh->ytra);
         ldt = fabs(sc->par.dt - ldt);
       }
     }
-
-    /* find tet containing p */
-    nsfin = locateTria(mesh,nsdep,++mesh->mark,p,cb);
-    if ( !nsfin )   break;
-    nsdep = nsfin;
-    pt = &mesh->tria[nsdep];
+    curiel = locateTria(mesh,curiel,p,cb);
+    if ( !curiel )  break;
+    pt = &mesh->tria[curiel];
     if ( pt->cpt > MAX_CPT )  break;
 
     /* adjust local stepsize */
-    if ( nsdep != nsold ) {
-      st->size = sizeTria(mesh,nsdep);
-      nsold    = nsdep;
+    if ( curiel != oldiel ) {
+      st->size = sizeTria(mesh,curiel);
+      oldiel = curiel;
+      step = 0.05 * st->size;
     }
+    st->norm = field2DInterp(mesh,curiel,cb,v);
+    if ( st->norm < 1.e-10 )  break;
 
-    /* vector field interpolation */
-    st->norm = field2DInterp(mesh,nsdep,cb,v);
-    step     = HSIZ * min(st->size,st->norm);
     if ( sc->par.maxtime < FLT_MAX )
       step = min(0.05*sc->par.dt,step);
-    if ( step < 1.e-20 )   break;
-
+    if ( nbp > 10 ) {
+      dd = (p[0]-pp[0])*(p[0]-pp[0]) + (p[1]-pp[1])*(p[1]-pp[1]);
+      if ( dd < 1e-20 )  break;
+    }
     nbp += filterPoint(sc,st,p,0);
   }
   while ( nbp < maxpts );
-  addPoint(sc,st,p,0);
+  if ( curiel ) {
+    addPoint(sc,st,p);
+  }
   glEnd();
-
-  if (  nbp >= maxpts || sc->par.maxtime > FLT_MAX ) {
-    glLineWidth(1.0);
+  if ( sc->par.maxtime > FLT_MAX ) {
     glEndList();
-    fprintf(stdout,": %d (%d, %.2f) / %d lines",nbar,nbp,(float)nbp/nbar,k/3);
-    ct = difftime(clock(),ct);
-    fprintf(stdout," %6.2f sec.\n",ct);
+    if ( !squiet )  fprintf(stdout,": %d sample(s) / %d line(s)\n",nbp,st->nbstl);
     if ( sc->par.maxtime < FLT_MAX ) {
-      fprintf(out,"%8.2f  %f %f\n",
-              sc->par.cumtim,p[0]+mesh->xtra,p[1]+mesh->ytra);
+      fprintf(out,"%8.2f  %f %f\n",sc->par.cumtim,p[0]+mesh->xtra,p[1]+mesh->ytra);
       fclose(out);
     }
     return(1);
   }
 
   /* reverse orientation */
-  memcpy(p,pp,3*sizeof(float));
+  p[0] = pp[0];
+  p[1] = pp[1];
+  p[2] = 0.0;
   memcpy(cb,cbdep,3*sizeof(double));
-  memcpy(v,vdep,3*sizeof(double));
+  memcpy(v,vdep,2*sizeof(double));
   st->norm = normdep;
   st->size = sizedep;
-  if ( st->size == 0.0 )
-    step = EPS * sc->dmax;
-  else
-    step = HSIZ* st->size;
+  st->stnp = 1;
+  step = -0.05*st->size;
 
   /* build display list incrementally */
-  nsdep = nsold = depart;
+  curiel = oldiel = saviel;
+  nbs = nbp;
+  nbp = 1;
   glBegin(GL_LINE_STRIP);
-  addPoint(sc,st,p,0);
-  nbp++;
-
+  addPoint(sc,st,p);
   do {
     /* move to next point */
-    if ( st->typtrack == Euler || !nxtPoint2D(mesh,nsdep,p,-step,v) ) {
-      p[0] -= step*v[0];
-      p[1] -= step*v[1];
+    if ( st->typtrack == RK4 ) {
+      curiel = nxtPoint2D(mesh,curiel,p,step,v);
+    }
+    if ( st->typtrack == Euler || !curiel ) {
+      p[0] += step*v[0];
+      p[1] += step*v[1];
     }
     if ( p[0]<st->xmin || p[1]<st->ymin || p[0]>st->xmax || p[1]>st->ymax )
       break;
-
-    /* find tet containing p */
-    nsfin = locateTria(mesh,nsdep,++mesh->mark,p,cb);
-    if ( !nsfin )  break;
-    nsdep = nsfin;
-    pt = &mesh->tria[nsdep];
+    curiel = locateTria(mesh,curiel,p,cb);
+    if ( !curiel )  break;
+    pt = &mesh->tria[curiel];
     if ( pt->cpt > MAX_CPT )  break;
 
     /* adjust local stepsize */
-    if ( nsdep != nsold ) {
-      st->size = sizeTria(mesh,nsdep);
-      nsold    = nsdep;
+    if ( curiel != oldiel ) {
+      st->size = sizeTria(mesh,curiel);
+      oldiel = curiel;
+      step = -0.05*st->size;
     }
-
-    /* vector field interpolation */
-    st->norm = field2DInterp(mesh,nsdep,cb,v);
-    step = HSIZ * min(st->size,st->norm);
-    if ( step < 1.e-20 )   break;
-
+    st->norm = field2DInterp(mesh,curiel,cb,v);
+    if ( st->norm < 1.e-10 )  break;
+    else if ( nbp > 10 ) {
+      dd = (p[0]-pp[0])*(p[0]-pp[0]) + (p[1]-pp[1])*(p[1]-pp[1]);
+      if ( dd < 1e-20 )  break;
+    }
     nbp += filterPoint(sc,st,p,0);
   }
   while ( nbp < maxpts );
-  addPoint(sc,st,p,0);
+  if ( curiel ) {
+    addPoint(sc,st,p);
+  }
   glEnd();
-  glLineWidth(1.0);
   glEndList();
 
-  if ( !nbp ) {
-    st->nbstl--;
-    fprintf(stdout,".. empty.\n");
-    return(0);
-  }
-
-  /*if ( ddebug ) */
-  if ( nbar )
-    fprintf(stdout,": %d (%d, %.2f) / %d lines",nbar,nbp,(float)nbp/nbar,k/3);
-  ct = difftime(clock(),ct);
-  fprintf(stdout," %6.2f sec.\n",ct);
+  if ( nbp+nbs > 0 && !squiet )
+    fprintf(stdout,": %d sample(s) / %d line(s)\n",nbp+nbs,st->nbstl);
 
   return(1);
 }
 
 
-int listSaddleStream(pScene sc,pMesh mesh,int depart,
-                     float *pp,float *vv,double lambda) {
+int listSaddleStream(pScene sc,pMesh mesh,int depart,float *pp,float *vv,double lambda) {
   pTriangle  pt;
   pStream    st;
   double     cb[3],v[3];
-  float      sens,step,p[3];
+  double     sens,step,p[3];
   int        i,k,nsdep,nsfin,nsold,nbp,maxpts;
 
   /* default */
@@ -1678,7 +1717,7 @@ int listSaddleStream(pScene sc,pMesh mesh,int depart,
   k = st->nbstl*3;
   st->listp[k]   = p[0] = pp[0];
   st->listp[k+1] = p[1] = pp[1];
-  st->listp[k+2] = p[2] = 0.0f;
+  st->listp[k+2] = p[2] = 0.0;
   
   for (i=1; i<=mesh->nt; i++) {
     pt = &mesh->tria[i];
@@ -1688,8 +1727,6 @@ int listSaddleStream(pScene sc,pMesh mesh,int depart,
   /* compute streamlines */
   nsold = nsdep = depart;
   nbp   = nbar   = 0;
-  glBegin(GL_LINE_STRIP);
-  addPoint(sc,st,pp,1);
 
   st->size = sizeTria(mesh,depart);
   st->norm = sqrt(vv[0]*vv[0] + vv[1]*vv[1]);
@@ -1704,6 +1741,8 @@ int listSaddleStream(pScene sc,pMesh mesh,int depart,
   sens = lambda < 0.0f ? -1. : 1.;
 
   /* build display list incrementally */
+  glBegin(GL_LINE_STRIP);
+  addPoint(sc,st,p);
   do {
     /* move to next point */
     if ( st->typtrack == Euler || !nxtPoint2D(mesh,nsdep,p,step,v) ) {
@@ -1715,7 +1754,7 @@ int listSaddleStream(pScene sc,pMesh mesh,int depart,
          p[0]>st->xmax || p[1]>st->ymax )  break;
 
     /* find tet containing p */
-    nsfin = locateTria(mesh,nsdep,++mesh->mark,p,cb);
+    nsfin = locateTria(mesh,nsdep,p,cb);
     if ( !nsfin )  break;
     nsdep = nsfin;
     pt = &mesh->tria[nsdep];
@@ -1792,6 +1831,7 @@ pStream createStream(pScene sc,pMesh mesh) {
 /* create from point picking */
 int streamRefPoint(pScene sc,pMesh mesh) {
   pPoint    ppt;
+  double    cb[4];
   float     s[3];
 
   ppt = &mesh->point[refitem];
@@ -1800,9 +1840,9 @@ int streamRefPoint(pScene sc,pMesh mesh) {
   s[1] = ppt->c[1];
   s[2] = ppt->c[2];
   if ( mesh->dim == 2 )
-    listTriaStream(sc,mesh,s);
+    listTriaStream(sc,mesh,s,0);
   else {
-    if ( mesh->ntet )      listTetraStream(sc,mesh,s,0);
+    if ( mesh->ntet )      listTetraStream(sc,mesh,s,0,cb,1);
     else if ( mesh->nhex ) listHexaStream(sc,mesh,s,0);
   }
   ppt->flag = 1;
@@ -1814,6 +1854,7 @@ int streamRefPoint(pScene sc,pMesh mesh) {
 /* read starting point in file .iso */
 int streamIsoPoint(pScene sc,pMesh mesh) {
   pStream   st;
+  double    cb[4];
   int       k,nbp,nbstl;
   time_t    t;
 
@@ -1826,15 +1867,16 @@ int streamIsoPoint(pScene sc,pMesh mesh) {
   nbstl = st->nbstl;
   nbp   = 0;
   st->nbstl = 0;
-  if ( mesh->dim == 3 ) {
-    if ( !mesh->ntet )  return(0);
-    nbp = 0;
+  if ( mesh->dim == 3 && mesh->ntet ) {
     for (k=1; k<=3*nbstl; k+=3) {
-      /*printf("\n ici: %f %f %f\n",st->listp[k],st->listp[k+1],st->listp[k+2]);*/
-      nbp += listTetraStream(sc,mesh,&st->listp[k],1);
+      nbp += listTetraStream(sc,mesh,&st->listp[k],0,cb,1);
     }
   }
-
+  else if ( mesh->dim == 2 && mesh->nt ) {
+    for (k=1; k<=2*nbstl; k+=2) {
+      nbp += listTriaStream(sc,mesh,&st->listp[k],1);
+    }
+  }
   if ( !nbp )    return(0);
   if ( ddebug )  printf("stream start: %d points  ",nbp);
   fprintf(stdout,": %d lines",nbp);
@@ -1849,6 +1891,7 @@ int streamRefTria(pScene sc,pMesh mesh) {
   pMaterial   pm;
   pTriangle   pt;
   pPoint      ppt;
+  double      cb[4];
   float       s[3];
   int         i,k,nmat,nbp,base;
   time_t      t;
@@ -1887,7 +1930,9 @@ int streamRefTria(pScene sc,pMesh mesh) {
         s[1] = ppt->c[1];
         s[2] = ppt->c[2];
         if ( ++nbp > MAX_LST-1 ) break;
-        listTetraStream(sc,mesh,s,1);
+        memset(cb,0,4*sizeof(double));
+        cb[i] = 1.0;
+        listTetraStream(sc,mesh,s,k,cb,1);
         ppt->flag = 1;
       }
     }

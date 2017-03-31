@@ -8,7 +8,7 @@
 
 /* build lists for iso-surfaces */
 GLuint listTriaIso(pScene sc,pMesh mesh) {
-	FILE      *out;
+  FILE      *out;
   GLuint     dlist = 0;
   pTriangle  pt;
   pPoint     p0,p1;
@@ -17,7 +17,7 @@ GLuint listTriaIso(pScene sc,pMesh mesh) {
   double     rgb[3];
   float      iso,c[3][3],cc,kc;
   int        m,k,i,l,l1,nc,ncol,zi;
-	char      *ptr,data[256];
+  char      *ptr,data[256];
   static double hsv[3]  = { 0.0, 1.0, 0.9 };
   static int    idir[5] = {0,1,2,0,1};
 
@@ -32,14 +32,14 @@ GLuint listTriaIso(pScene sc,pMesh mesh) {
   if ( glGetError() )  return(0);
 
   if ( ddebug ) {
-		strcpy(data,mesh->name);
-		ptr = strstr(data,".mesh");
-		if ( ptr ) *ptr = '\0';
-		strcat(data,".data");
-		out = fopen(data,"w");
-		fprintf(stdout,"  %% Opening %s\n",data);
-	}
-	
+    strcpy(data,mesh->name);
+    ptr = strstr(data,".mesh");
+    if ( ptr ) *ptr = '\0';
+    strcat(data,".data");
+    out = fopen(data,"w");
+    fprintf(stdout,"  %% Opening %s\n",data);
+  }
+  
   /* build list */
   glBegin(GL_LINES);
   ncol = NBCOL;
@@ -72,9 +72,9 @@ GLuint listTriaIso(pScene sc,pMesh mesh) {
 
         /* analyze edges */
         nc = 0;
-				zi = 0;
-				memset(c,0,9*sizeof(float));
-				for (l=0; l<3; l++) {
+        zi = 0;
+        memset(c,0,9*sizeof(float));
+        for (l=0; l<3; l++) {
           l1  = idir[l+1];
           p0  = &mesh->point[pt->v[l]];
           p1  = &mesh->point[pt->v[l1]];
@@ -88,59 +88,59 @@ GLuint listTriaIso(pScene sc,pMesh mesh) {
             nc++;
           }
           else if ( ps0->bb == iso  && ps1->bb == iso ) {
-	          if ( mesh->dim == 2 ) {
-							c[0][0] = p0->c[0];  c[0][1] = p0->c[1];
-							c[1][0] = p1->c[0];  c[1][1] = p1->c[1];
-				  	}
-						else {
-						  c[0][0] = p0->c[0];  c[0][1] = p0->c[1];  c[0][2] = p0->c[2];
-						  c[1][0] = p1->c[0];  c[1][1] = p1->c[1];  c[1][2] = p1->c[2];
-						}
-						nc = 2;
-						break;
-		      }
-          else {
-	          if ( ps0->bb == iso  && zi != pt->v[l] ) {
-					    if ( mesh->dim == 2 ) {
-							  c[nc][0] = p0->c[0];  c[nc][1] = p0->c[1];
-							}
-							else {
-							  c[nc][0] = p0->c[0];  c[nc][1] = p0->c[1];  c[nc][2] = p0->c[2];
-						  }
-              nc++;
-							zi = pt->v[l];
+            if ( mesh->dim == 2 ) {
+              c[0][0] = p0->c[0];  c[0][1] = p0->c[1];
+              c[1][0] = p1->c[0];  c[1][1] = p1->c[1];
             }
-	          if ( ps1->bb == iso && zi != pt->v[l1] ) {
-					    if ( mesh->dim == 2 ) {
-							  c[nc][0] = p1->c[0];  c[nc][1] = p1->c[1];
-							}
-							else {
-							  c[nc][0] = p1->c[0];  c[nc][1] = p1->c[1];  c[nc][2] = p1->c[2];
-						  }  
+            else {
+              c[0][0] = p0->c[0];  c[0][1] = p0->c[1];  c[0][2] = p0->c[2];
+              c[1][0] = p1->c[0];  c[1][1] = p1->c[1];  c[1][2] = p1->c[2];
+            }
+            nc = 2;
+            break;
+          }
+          else {
+            if ( ps0->bb == iso  && zi != pt->v[l] ) {
+              if ( mesh->dim == 2 ) {
+                c[nc][0] = p0->c[0];  c[nc][1] = p0->c[1];
+              }
+              else {
+                c[nc][0] = p0->c[0];  c[nc][1] = p0->c[1];  c[nc][2] = p0->c[2];
+              }
+              nc++;
+              zi = pt->v[l];
+            }
+            if ( ps1->bb == iso && zi != pt->v[l1] ) {
+              if ( mesh->dim == 2 ) {
+                c[nc][0] = p1->c[0];  c[nc][1] = p1->c[1];
+              }
+              else {
+                c[nc][0] = p1->c[0];  c[nc][1] = p1->c[1];  c[nc][2] = p1->c[2];
+              }  
               nc++;
               zi = pt->v[l1];
             } 
           }
         }
-	      if ( nc == 2 ) {
-	        if ( mesh->dim == 2 ) {
-		        glVertex2f(c[0][0],c[0][1]);
-		        glVertex2f(c[1][0],c[1][1]);
-		        if ( ddebug ) {
-			        fprintf(out,"%f %f\n",c[0][0]+mesh->xtra,c[0][1]+mesh->ytra);
-			        fprintf(out,"%f %f\n",c[1][0]+mesh->xtra,c[1][1]+mesh->ytra);
+        if ( nc == 2 ) {
+          if ( mesh->dim == 2 ) {
+            glVertex2f(c[0][0],c[0][1]);
+            glVertex2f(c[1][0],c[1][1]);
+            if ( ddebug ) {
+              fprintf(out,"%f %f\n",c[0][0]+mesh->xtra,c[0][1]+mesh->ytra);
+              fprintf(out,"%f %f\n",c[1][0]+mesh->xtra,c[1][1]+mesh->ytra);
             }
-		      }
-		      else {
-			      glVertex3f(c[0][0],c[0][1],c[0][2]);
-			      glVertex3f(c[1][0],c[1][1],c[1][2]);
-		        if ( ddebug ) {
-		          fprintf(out,"%f %f %f\n",c[0][0]+mesh->xtra,c[0][1]+mesh->ytra,c[0][2]+mesh->ztra);
-		          fprintf(out,"%f %f %f\n",c[1][0]+mesh->xtra,c[1][1]+mesh->ytra,c[1][2]+mesh->ztra);
+          }
+          else {
+            glVertex3f(c[0][0],c[0][1],c[0][2]);
+            glVertex3f(c[1][0],c[1][1],c[1][2]);
+            if ( ddebug ) {
+              fprintf(out,"%f %f %f\n",c[0][0]+mesh->xtra,c[0][1]+mesh->ytra,c[0][2]+mesh->ztra);
+              fprintf(out,"%f %f %f\n",c[1][0]+mesh->xtra,c[1][1]+mesh->ytra,c[1][2]+mesh->ztra);
             }
-		      }
-					if ( ddebug )  fprintf(out,"\n");
-	      }
+          }
+          if ( ddebug )  fprintf(out,"\n");
+        }
 
         k = pt->nxt;
       }
@@ -149,10 +149,130 @@ GLuint listTriaIso(pScene sc,pMesh mesh) {
   glEnd();
   glEndList();
 
-	if ( ddebug )  fclose(out);
+  if ( ddebug )  fclose(out);
   return(dlist);
 }
 
+/* build lists for isolines (isovalues given in file) */
+GLuint listTriaIso2(pScene sc,pMesh mesh) {
+  FILE      *in;
+  GLuint     dlist = 0;
+  pTriangle  pt;
+  pPoint     p0,p1;
+  pMaterial  pm;
+  pSolution  ps0,ps1;
+  double     rgb[3];
+  float     *col,iso,c[3][3],cc,kc;
+  int        m,k,i,l,l1,nc,ncol,zi;
+  char      *ptr,data[256];
+  static double hsv[3]  = { 0.0, 1.0, 0.9 };
+  static int    idir[5] = {0,1,2,0,1};
+
+  /* default */
+  if ( !mesh->nt || !mesh->nbb || mesh->typage == 1 )  return(0);
+  if ( ddebug ) printf("create iso-values map list / TRIA\n");
+  if ( egal(sc->iso.val[0],sc->iso.val[MAXISO-1]) )  return(0);
+
+  /* read isovalues in file */
+  strcpy(data,mesh->name);
+  ptr = strstr(data,".mesh");
+  if ( ptr ) *ptr = '\0';
+  strcat(data,".data");
+  in = fopen(data,"r");
+  if ( !in ) {
+    fprintf(stdout," No data file %s found\n",data);
+    return(0);
+  }
+  fprintf(stdout,"  %% Opening %s\n",data);
+  fscanf(in,"%d",&ncol);
+  col = (float*)calloc(ncol+2,sizeof(double));
+  assert(col);
+  for (i=0; i<ncol; i++) {
+    fscanf(in,"%f",&col[i]);
+  }
+  fclose(in);
+
+  /* create display list */
+  dlist = glGenLists(1);
+  glNewList(dlist,GL_COMPILE);
+  if ( glGetError() )  return(0);
+
+  /* build list */
+  glBegin(GL_LINES);
+  for (i=0; i<ncol; i++) {
+    iso = col[i];
+
+    /* convert to color */
+    for (l=0; l<MAXISO; l++)
+      if ( sc->iso.val[l] > iso )  break;
+    if ( l == 0 || l == MAXISO )
+      hsv[0] = sc->iso.col[l];
+    else {
+      kc = (sc->iso.val[l]-iso) / (sc->iso.val[l] - sc->iso.val[l-1]); 
+      hsv[0] = sc->iso.col[l]*(1.0-kc) + sc->iso.col[l-1]*kc;
+      hsvrgb(hsv,rgb);
+    }
+    glColor3dv(rgb);
+
+    for (m=0; m<sc->par.nbmat; m++) {
+      pm = &sc->material[m];
+      k  = pm->depmat[LTria];
+      if ( !k || pm->flag )  continue;
+      while ( k != 0 ) {
+        pt = &mesh->tria[k];
+        if ( !pt->v[0] ) {
+          k = pt->nxt;
+          continue;
+        }
+
+        /* analyze edges */
+        nc = 0;
+        zi = 0;
+        memset(c,0,9*sizeof(float));
+        for (l=0; l<3; l++) {
+          l1  = idir[l+1];
+          p0  = &mesh->point[pt->v[l]];
+          p1  = &mesh->point[pt->v[l1]];
+          ps0 = &mesh->sol[pt->v[l]];
+          ps1 = &mesh->sol[pt->v[l1]];
+          if ( (ps0->bb > iso && ps1->bb < iso) || (ps0->bb < iso && ps1->bb > iso) ) {
+            cc = fabs((iso-ps0->bb) / (ps1->bb-ps0->bb));
+            c[nc][0] = p0->c[0] + cc*(p1->c[0]-p0->c[0]);
+            c[nc][1] = p0->c[1] + cc*(p1->c[1]-p0->c[1]);
+            if ( mesh->dim == 3)  c[nc][2] = p0->c[2]+cc*(p1->c[2]-p0->c[2]);
+            nc++;
+          }
+          else if ( ps0->bb == iso  && ps1->bb == iso ) {
+            c[0][0] = p0->c[0];  c[0][1] = p0->c[1];
+            c[1][0] = p1->c[0];  c[1][1] = p1->c[1];
+            nc = 2;
+            break;
+          }
+          else {
+            if ( ps0->bb == iso  && zi != pt->v[l] ) {
+              c[nc][0] = p0->c[0];  c[nc][1] = p0->c[1];
+              nc++;
+              zi = pt->v[l];
+            }
+            if ( ps1->bb == iso && zi != pt->v[l1] ) {
+              c[nc][0] = p1->c[0];  c[nc][1] = p1->c[1];
+              nc++;
+              zi = pt->v[l1];
+            } 
+          }
+        }
+        if ( nc == 2 ) {
+          glVertex2f(c[0][0],c[0][1]);
+          glVertex2f(c[1][0],c[1][1]);
+        }
+        k = pt->nxt;
+      }
+    }
+  }
+  glEnd();
+  glEndList();
+  return(dlist);
+}
 
 /* build lists for iso-surfaces */
 GLuint listQuadIso(pScene sc,pMesh mesh) {
@@ -239,17 +359,6 @@ GLuint listQuadIso(pScene sc,pMesh mesh) {
   return(dlist);
 }
 
-
-/* save isosurf on disk */
-static int saveListTetraIso(pMesh mesh) {
-  FILE      *outv,*outf;
-  pTetra     pt;
-  pPoint     p0,p1;
-
-	return(1);
-}
-
-
 /* build lists for iso-surfaces */
 GLuint listTetraIso(pScene sc,pMesh mesh) {
   FILE      *outv,*outf;
@@ -261,7 +370,7 @@ GLuint listTetraIso(pScene sc,pMesh mesh) {
   double     delta,rgb[4],d,ax,ay,az,bx,by,bz,cc;
   float      iso,n[3],cx[4],cy[4],cz[4];
   int        m,k,k1,k2,i,l,pos[4],neg[4],nbpos,nbneg,nbnul,nv,nf,idxf,posv,posf;
-	char       data[64];
+  char       data[64];
   static double hsv[3]   = { 0.0, 1.0, 0.8 };
   static int tn[4] = {0,0,1,1};
   static int tp[4] = {0,1,1,0};
@@ -286,21 +395,21 @@ GLuint listTetraIso(pScene sc,pMesh mesh) {
   for (i=MAXISO-1; i>=0; i--) {
     iso = sc->iso.val[i];
 
-	  if (ddebug) {
-			idxf = 1;
-			sprintf(data,"vertex%d.%d.mesh",i,idxf);
-		  outv = fopen(data,"w");
-		  fprintf(outv,"MeshVersionFormatted 1\n Dimension\n 3\n\nVertices\n");
-			posv = ftell(outv);
-			fprintf(outv,"xxxxxxxx\n");
+    if ( ddebug ) {
+      idxf = 1;
+      sprintf(data,"vertex%d.%d.mesh",i,idxf);
+			outv = fopen(data,"w");
+      fprintf(outv,"MeshVersionFormatted 1\n Dimension\n 3\n\nVertices\n");
+      posv = ftell(outv);
+      fprintf(outv,"xxxxxxxx\n");
 
-			sprintf(data,"faces%d.%d.mesh",i,idxf);
-		  outf = fopen(data,"w");
-		  fprintf(outf,"\n Triangles\n");
-			posf = ftell(outf);
-			fprintf(outf,"xxxxxxxx\n");
-	  }
-		nv = nf = 0;
+      sprintf(data,"faces%d.%d.mesh",i,idxf);
+      outf = fopen(data,"w");
+      fprintf(outf,"\n Triangles\n");
+      posf = ftell(outf);
+      fprintf(outf,"xxxxxxxx\n");
+    }
+    nv = nf = 0;
 
     /* base color */
     /*hsv[0] = 240.0f*(1.0f - (iso-sc->iso.val[0])/delta);*/
@@ -378,7 +487,7 @@ GLuint listTetraIso(pScene sc,pMesh mesh) {
           glVertex3f(cx[1],cy[1],cz[1]);
           glVertex3f(cx[2],cy[2],cz[2]);
           
-	        glNormal3fv(n);
+          glNormal3fv(n);
           glVertex3f(cx[0],cy[0],cz[0]);
           glVertex3f(cx[2],cy[2],cz[2]);
           glVertex3f(cx[3],cy[3],cz[3]);
@@ -391,37 +500,37 @@ GLuint listTetraIso(pScene sc,pMesh mesh) {
             
             fprintf(outf,"%d %d %d 0\n",nv+1,nv+2,nv+3);
             fprintf(outf,"%d %d %d 0\n",nv+1,nv+3,nv+4);
-	          nv+= 4;
-	          nf+= 2;
+            nv+= 4;
+            nf+= 2;
 
             if ( nf >= 2000000 ) {
-							rewind(outv);
-						  printf("  Vertices %d   Triangles %d\n",nv,nf);
-							fseek(outv,posv,0);
-							fprintf(outv,"%8d\n",nv);
-							fclose(outv);
-							
-							fprintf(outf,"\nEnd\n");
-							rewind(outf);
-							fseek(outf,posf,0);
-							fprintf(outf,"%8d\n",nf);
-							fclose(outf);
-							nv = 0;
-							nf = 0;
-							
-							idxf++;
-							sprintf(data,"vertex%d.%d.mesh",i,idxf);
-						  outv = fopen(data,"w");
-						  fprintf(outv,"MeshVersionFormatted 1\n Dimension\n 3\n\nVertices\n");
-							posv = ftell(outv);
-							fprintf(outv,"xxxxxxxx\n");
-						  
-							sprintf(data,"faces%d.%d.mesh",i,idxf);
-						  outf = fopen(data,"w");						
-						  fprintf(outf,"\nTriangles\n");
-							posf = ftell(outf);
-							fprintf(outf,"xxxxxxxx\n");	  
-	          }
+              rewind(outv);
+              printf("  Vertices %d   Triangles %d\n",nv,nf);
+              fseek(outv,posv,0);
+              fprintf(outv,"%8d\n",nv);
+              fclose(outv);
+              
+              fprintf(outf,"\nEnd\n");
+              rewind(outf);
+              fseek(outf,posf,0);
+              fprintf(outf,"%8d\n",nf);
+              fclose(outf);
+              nv = 0;
+              nf = 0;
+              
+              idxf++;
+              sprintf(data,"vertex%d.%d.mesh",i,idxf);
+              outv = fopen(data,"w");
+              fprintf(outv,"MeshVersionFormatted 1\n Dimension\n 3\n\nVertices\n");
+              posv = ftell(outv);
+              fprintf(outv,"xxxxxxxx\n");
+              
+              sprintf(data,"faces%d.%d.mesh",i,idxf);
+              outf = fopen(data,"w");           
+              fprintf(outf,"\nTriangles\n");
+              posf = ftell(outf);
+              fprintf(outf,"xxxxxxxx\n");   
+            }
           }
           else {
             nv+= 4;
@@ -471,33 +580,33 @@ GLuint listTetraIso(pScene sc,pMesh mesh) {
             nf += 1;
 
             if ( nf >= 10000000 ) {
-						  printf("  Vertices %d   Triangles %d\n",nv,nf);
-							rewind(outv);
-							fseek(outv,posv,0);
-							fprintf(outv,"%8d\n",nv);
-							fclose(outv);
-							
-							fprintf(outf,"\nEnd\n");
-							rewind(outf);
-							fseek(outf,posf,0);
-							fprintf(outf,"%8d\n",nf);
-							fclose(outf);
-							
-							nv = 0;
-							nf = 0;
-							idxf++;
-							sprintf(data,"vertex%d.%d.mesh",i,idxf);
-						  outv = fopen(data,"w");
-						  fprintf(outv,"MeshVersionFormatted 1\n Dimension\n 3\n\nVertices\n");
-							posv = ftell(outv);
-							fprintf(outv,"xxxxxxxx\n");
-						  
-						  sprintf(data,"faces%d.%d.mesh",i,idxf);
-						  outf = fopen(data,"w");
-						  fprintf(outf,"\nTriangles\n");
-							posf = ftell(outf);
-							fprintf(outf,"xxxxxxxx\n");	  
-	          }
+              printf("  Vertices %d   Triangles %d\n",nv,nf);
+              rewind(outv);
+              fseek(outv,posv,0);
+              fprintf(outv,"%8d\n",nv);
+              fclose(outv);
+              
+              fprintf(outf,"\nEnd\n");
+              rewind(outf);
+              fseek(outf,posf,0);
+              fprintf(outf,"%8d\n",nf);
+              fclose(outf);
+              
+              nv = 0;
+              nf = 0;
+              idxf++;
+              sprintf(data,"vertex%d.%d.mesh",i,idxf);
+              outv = fopen(data,"w");
+              fprintf(outv,"MeshVersionFormatted 1\n Dimension\n 3\n\nVertices\n");
+              posv = ftell(outv);
+              fprintf(outv,"xxxxxxxx\n");
+              
+              sprintf(data,"faces%d.%d.mesh",i,idxf);
+              outf = fopen(data,"w");
+              fprintf(outf,"\nTriangles\n");
+              posf = ftell(outf);
+              fprintf(outf,"xxxxxxxx\n");   
+            }
           }
           else {
             nv += 3;
@@ -508,19 +617,19 @@ GLuint listTetraIso(pScene sc,pMesh mesh) {
       }
     }
 
-	  if ( ddebug ) {
-		  printf("  Vertices %d   Triangles %d\n",nv,nf);
-			rewind(outv);
-			fseek(outv,posv,0);
-			fprintf(outv,"%8d\n",nv);
-			fclose(outv);
+    if ( ddebug ) {
+      printf("  Vertices %d   Triangles %d\n",nv,nf);
+      rewind(outv);
+      fseek(outv,posv,0);
+      fprintf(outv,"%8d\n",nv);
+      fclose(outv);
 
-			fprintf(outf,"\nEnd\n");
-			rewind(outf);
-			fseek(outf,posf,0);
-			fprintf(outf,"%8d\n",nf);
-			fclose(outf);
-	  }
+      fprintf(outf,"\nEnd\n");
+      rewind(outf);
+      fseek(outf,posf,0);
+      fprintf(outf,"%8d\n",nf);
+      fclose(outf);
+    }
 
   }
   glEnd();
@@ -610,22 +719,22 @@ int tetraIsoPOVray(pScene sc,pMesh mesh) {
             cz[l] = p0->c[2]+cc*(p1->c[2]-p0->c[2]);
           }
 
-	  fprintf(isofil,"triangle {\n");
-	  fprintf(isofil,"  <%f,%f,%f>,\n",
-	  cx[0]+mesh->xtra,cy[0]+mesh->ytra,cz[0]+mesh->ztra);
- 	  fprintf(isofil,"  <%f,%f,%f>,\n",
-	  cx[1]+mesh->xtra,cy[1]+mesh->ytra,cz[1]+mesh->ztra);
-	  fprintf(isofil,"  <%f,%f,%f>\n" ,
-	  cx[2]+mesh->xtra,cy[2]+mesh->ytra,cz[2]+mesh->ztra);
+    fprintf(isofil,"triangle {\n");
+    fprintf(isofil,"  <%f,%f,%f>,\n",
+    cx[0]+mesh->xtra,cy[0]+mesh->ytra,cz[0]+mesh->ztra);
+    fprintf(isofil,"  <%f,%f,%f>,\n",
+    cx[1]+mesh->xtra,cy[1]+mesh->ytra,cz[1]+mesh->ztra);
+    fprintf(isofil,"  <%f,%f,%f>\n" ,
+    cx[2]+mesh->xtra,cy[2]+mesh->ytra,cz[2]+mesh->ztra);
           fprintf(isofil,"}\n");
 
-	  fprintf(isofil,"triangle {\n");
-	  fprintf(isofil,"  <%f,%f,%f>,\n",
-	  cx[0]+mesh->xtra,cy[0]+mesh->ytra,cz[0]+mesh->ztra);
- 	  fprintf(isofil,"  <%f,%f,%f>,\n",
-	  cx[2]+mesh->xtra,cy[2]+mesh->ytra,cz[2]+mesh->ztra);
-	  fprintf(isofil,"  <%f,%f,%f>\n" ,
-	  cx[3]+mesh->xtra,cy[3]+mesh->ytra,cz[3]+mesh->ztra);
+    fprintf(isofil,"triangle {\n");
+    fprintf(isofil,"  <%f,%f,%f>,\n",
+    cx[0]+mesh->xtra,cy[0]+mesh->ytra,cz[0]+mesh->ztra);
+    fprintf(isofil,"  <%f,%f,%f>,\n",
+    cx[2]+mesh->xtra,cy[2]+mesh->ytra,cz[2]+mesh->ztra);
+    fprintf(isofil,"  <%f,%f,%f>\n" ,
+    cx[3]+mesh->xtra,cy[3]+mesh->ytra,cz[3]+mesh->ztra);
           fprintf(isofil,"}\n");
         }
         else if ( !nbnul ) {
@@ -643,13 +752,13 @@ int tetraIsoPOVray(pScene sc,pMesh mesh) {
             cy[l] = p0->c[1]+cc*(p1->c[1]-p0->c[1]);
             cz[l] = p0->c[2]+cc*(p1->c[2]-p0->c[2]);
           }
-	  fprintf(isofil,"triangle {\n");
-	  fprintf(isofil,"  <%f,%f,%f>,\n",
-	  cx[0]+mesh->xtra,cy[0]+mesh->ytra,cz[0]+mesh->ztra);
- 	  fprintf(isofil,"  <%f,%f,%f>,\n",
-	  cx[1]+mesh->xtra,cy[1]+mesh->ytra,cz[1]+mesh->ztra);
-	  fprintf(isofil,"  <%f,%f,%f>\n",
-	  cx[2]+mesh->xtra,cy[2]+mesh->ytra,cz[2]+mesh->ztra);
+    fprintf(isofil,"triangle {\n");
+    fprintf(isofil,"  <%f,%f,%f>,\n",
+    cx[0]+mesh->xtra,cy[0]+mesh->ytra,cz[0]+mesh->ztra);
+    fprintf(isofil,"  <%f,%f,%f>,\n",
+    cx[1]+mesh->xtra,cy[1]+mesh->ytra,cz[1]+mesh->ztra);
+    fprintf(isofil,"  <%f,%f,%f>\n",
+    cx[2]+mesh->xtra,cy[2]+mesh->ytra,cz[2]+mesh->ztra);
           fprintf(isofil,"}\n");
         }
         k = pt->nxt;

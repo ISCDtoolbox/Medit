@@ -130,6 +130,7 @@ int loadGIS(pMesh mesh) {
         ppt->c[2] = hhz * te[ni++];
         ppt->c[0] = ggx*(xxm + i-1);
         ppt->c[1] = ggy*(yym + j-1);
+				ppt->tag &= ~M_UNUSED;
       }
     }
     free(te);
