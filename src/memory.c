@@ -50,7 +50,7 @@ void M_memDump() {
         fprintf(stdout,"   %10d Mbytes  ",(int)(mstack[i].size/mega));
       else if (mstack[i].size > kilo)
         fprintf(stdout,"   %10d Kbytes  ",(int)(mstack[i].size/kilo));
-      else 
+      else
         fprintf(stdout,"   %10d  bytes  ",(int)(mstack[i].size));
       fprintf(stdout,"(%s)\n",mstack[i].call);
       size += mstack[i].size;
@@ -112,15 +112,14 @@ void *M_malloc(size_t size,char *call) {
     return(mstack[i].ptr);
   }
   else {
-    fprintf(stderr,"M_malloc: unable to store %10Zd bytes pointer. table full\n",
-	    size);
+    fprintf(stderr,"M_malloc: unable to store %10Zd bytes pointer. table full\n",(int)size);
     return(0);
   }
 }
 
 
-/* Allocates space for an array of nelem elements, each of size 
-   elsize bytes, and initializes the space to zeros.  
+/* Allocates space for an array of nelem elements, each of size
+   elsize bytes, and initializes the space to zeros.
    Actual amount of space allocated is >=  nelem * elsize bytes. */
 void *M_calloc(size_t nelem, size_t elsize,char *call) {
   int    i;
@@ -155,14 +154,13 @@ void *M_calloc(size_t nelem, size_t elsize,char *call) {
     return(mstack[i].ptr);
   }
   else {
-    fprintf(stderr,"M_calloc: unable to allocate %10Zd bytes. table full\n",
-	    nelem*elsize);
+    fprintf(stderr,"M_calloc: unable to allocate %10Zd bytes. table full\n",(int)(nelem*elsize));
     return(0);
   }
 }
 
-/* Changes the size of the block pointed to by ptr to size bytes 
-   and returns a pointer to the (possibly moved) block. Existing 
+/* Changes the size of the block pointed to by ptr to size bytes
+   and returns a pointer to the (possibly moved) block. Existing
    contents are unchanged up to the lesser of the new and old sizes. */
 void *M_realloc(void *ptr, size_t size,char *call) {
   int    i;
@@ -193,12 +191,12 @@ void *M_realloc(void *ptr, size_t size,char *call) {
   return(0);
 }
 
-/* Deallocates the space pointed to by ptr (a pointer to a block 
+/* Deallocates the space pointed to by ptr (a pointer to a block
    previously allocated by malloc() and makes the space available
    for further allocation.  If ptr is NULL, no action occurs. */
 void M_free(void *ptr) {
   int   i;
-  
+
   assert(ptr);
   for (i=1; i<=MAXMEM; i++) {
     if (mstack[i].ptr && ptr == mstack[i].ptr) {
@@ -230,12 +228,11 @@ void primem(int np) {
   if ( memsize ) {
     fprintf(stdout,"\n  -- MEMORY REQUIREMENTS\n");
     if (memsize > 1024*1024)
-      fprintf(stdout,"  Total size :  %10Zd Mbytes",
-	      (long int)(memsize/(1024.*1024.)));
+      fprintf(stdout,"  Total size :  %10d Mbytes",(int)(memsize/(1024.*1024.)));
     else if (memsize > 1024)
-      fprintf(stdout,"  Total size :  %10Zd Kbytes",(long int)(memsize/1024.));
+      fprintf(stdout,"  Total size :  %10d Kbytes",(int)(memsize/1024.));
     else
-      fprintf(stdout,"  Total size :  %10Zd bytes ",(long int)memsize);
+      fprintf(stdout,"  Total size :  %10d bytes ",(int)memsize);
     fprintf(stdout,"    (i.e. %d bytes/point)\n",memsize / np);
   }
 }
