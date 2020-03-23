@@ -19,7 +19,7 @@ ubyte     quiet,option,morphing,stereoMode;
 int       menu,amenu,fmenu,femenu,vmenu,mmenu,smenu;
 int       clmenu,cmenu,vwmenu,txmenu,trmenu;
 int       animdep,animfin;
-
+int       fieldidx;
 
 static void excfun(int sigid) {
   fprintf(stdout,"\n Unexpected error:");  fflush(stdout);
@@ -128,6 +128,7 @@ int medit0() {
 
   /* read mesh(es) */
   k = 0;
+  fieldidx = 1;
   do {
     if ( !cv.mesh[k] ) {
       cv.mesh[k] = M_calloc(1,sizeof(Mesh),"medit0.mesh");
@@ -158,7 +159,7 @@ int medit0() {
     if ( !quiet )  meshInfo(mesh);
 
     /* read metric */
-    if ( !loadSol(mesh,mesh->name,1) )
+    if ( !loadSol(mesh,mesh->name,fieldidx) )
       bbfile(mesh);
     if ( !quiet && mesh->nbb )
       fprintf(stdout,"    Solutions  %8d\n",mesh->nbb);

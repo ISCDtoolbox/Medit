@@ -464,7 +464,7 @@ int meshUpdate(pScene sc,pMesh mesh) {
   if ( !quiet )  meshInfo(mesh);
 
   /* read metric */
-  if ( !loadSol(mesh,mesh->name,1) )
+  if ( !loadSol(mesh,mesh->name,fieldidx) )
     bbfile(mesh);
   if ( !quiet && mesh->nbb )
     fprintf(stdout,"    Solutions  %8d\n",mesh->nbb);

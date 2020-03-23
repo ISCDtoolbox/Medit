@@ -291,12 +291,12 @@ GLuint listTriaMap(pScene sc,pMesh mesh) {
 
         is0 = is1 = is2 = 0;
         if ( mesh->extra->iv ) {
-          if ( pt->v[0] <= mesh->nvn )
-            is0 = mesh->extra->nv[pt->v[0]];
-          if ( pt->v[1] <= mesh->nvn )
-            is1 = mesh->extra->nv[pt->v[1]];
-          if ( pt->v[2] <= mesh->nvn )
-            is2 = mesh->extra->nv[pt->v[2]];
+          is0 = mesh->extra->nv[pt->v[0]];
+          assert ( is0 <= mesh->nvn );
+          is1 = mesh->extra->nv[pt->v[1]];
+          assert ( is1 <= mesh->nvn );
+          is2 = mesh->extra->nv[pt->v[2]];
+          assert ( is2 <= mesh->nvn );
         }
         if ( !is0 && pt->v[0] <= mesh->extra->it )
           is0 = mesh->extra->nt[3*(k-1)+1];
@@ -481,14 +481,14 @@ GLuint listQuadMap(pScene sc,pMesh mesh) {
       else {
         is0 = is1 = is2 = is3 = 0;
         if ( mesh->extra->iv ) {
-          if ( pq->v[0] <= mesh->nvn )
-            is0 = mesh->extra->nv[pq->v[0]];
-          if ( pq->v[1] <= mesh->nvn )
-            is1 = mesh->extra->nv[pq->v[1]];
-          if ( pq->v[2] <= mesh->nvn )
-            is2 = mesh->extra->nv[pq->v[2]];
-          if ( pq->v[3] <= mesh->nvn )
-            is3 = mesh->extra->nv[pq->v[3]];
+          is0 = mesh->extra->nv[pq->v[0]];
+          assert ( is0 <= mesh->nvn );
+          is1 = mesh->extra->nv[pq->v[1]];
+          assert ( is1 <= mesh->nvn );
+          is2 = mesh->extra->nv[pq->v[2]];
+          assert ( is2 <= mesh->nvn );
+          is3 = mesh->extra->nv[pq->v[3]];
+          assert ( is3 <= mesh->nvn );
         }
         if ( !is0 && pq->v[0] <= mesh->extra->iq )
           is0 = mesh->extra->nq[4*(k-1)+1];
