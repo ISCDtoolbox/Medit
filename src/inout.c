@@ -684,8 +684,35 @@ int loadSol(pMesh mesh,char *filename,int numsol) {
   }
   if ( !nel )  return(1);
 
-  if ( numsol > type )  numsol = 1;
   numsol--;
+  if ( numsol >= type ) { numsol = numsol%type; }
+  while ( numsol < 0  ) { numsol = type+numsol; }
+
+
+  off = 0;
+  for (i=0; i<numsol; i++) {
+    switch(typtab[i]) {
+      case GmfSca:  
+        off++; break;
+      case GmfVec:
+        off += dim; break;
+      case GmfSymMat:
+        off += dim*(dim+1)/2;  break;
+    }
+  }
+
+  switch(typtab[numsol]) {
+  case GmfSca:
+    mesh->nfield = 1;
+    break;
+  case GmfVec:
+    mesh->nfield = dim;
+    break;
+  case GmfSymMat:
+    mesh->nfield = dim*(dim+1) / 2;
+    break;
+  }
+
   mesh->nbb    = nel;
   mesh->bbmin  =  1.0e20;
   mesh->bbmax  = -1.0e20;
@@ -697,33 +724,20 @@ int loadSol(pMesh mesh,char *filename,int numsol) {
   sol->dim = dim;
   sol->ver = ver;
 
-  off = 0;
-  for (i=0; i<numsol; i++) {
-    switch(typtab[i]) {
-      case GmfSca:  
-        off++; break;
-      case GmfVec:
-        off += sol->dim; break;
-      case GmfSymMat:
-        off += sol->dim*(sol->dim+1)/2;  break;
-    }
-  }
-
   GmfGotoKwd(inm,key);
   switch(typtab[numsol]) {
     case GmfSca:
       if ( ddebug )  printf("   scalar field\n");
-      mesh->nfield = 1;
       for (k=1; k<=nel; k++) {
         if ( sol->ver == GmfFloat )
           GmfGetLin(inm,key,fbuf);
         else {
           GmfGetLin(inm,key,dbuf);
           for (i=0; i<GmfMaxTyp; i++)
-            fbuf[i] = dbuf[off+i];
+            fbuf[i] =  dbuf[i];
         }
         mesh->sol[k].bb = fbuf[off];
-				if ( fabs(mesh->sol[k].bb) < 1.e-20 )  mesh->sol[k].bb = 0.0;
+        if ( fabs(mesh->sol[k].bb) < 1.e-20 )  mesh->sol[k].bb = 0.0;
         if ( mesh->sol[k].bb < mesh->bbmin )  mesh->bbmin = mesh->sol[k].bb;
         if ( mesh->sol[k].bb > mesh->bbmax )  mesh->bbmax = mesh->sol[k].bb;
       }
@@ -731,7 +745,6 @@ int loadSol(pMesh mesh,char *filename,int numsol) {
 
     case GmfVec:
       if ( ddebug )  printf("   vector field\n");
-      mesh->nfield = sol->dim;
       for (k=1; k<=nel; k++) {
 		    mesh->sol[k].bb = 0.0;
         if ( sol->ver == GmfFloat )
@@ -739,7 +752,7 @@ int loadSol(pMesh mesh,char *filename,int numsol) {
         else {
           GmfGetLin(inm,key,dbuf);
           for (i=0; i<GmfMaxTyp; i++)
-            fbuf[i] = dbuf[off+i];
+            fbuf[i] = dbuf[i];
         }
         for (i=0; i<sol->dim; i++) {
           mesh->sol[k].m[i] = fbuf[off+i];
@@ -753,14 +766,13 @@ int loadSol(pMesh mesh,char *filename,int numsol) {
 
     case GmfSymMat:
       if ( ddebug )  printf("   metric field\n");
-      mesh->nfield = sol->dim*(sol->dim+1) / 2;
       for (k=1; k<=nel; k++) {
         if ( sol->ver == GmfFloat )
           GmfGetLin(inm,key,fbuf);
         else {
           GmfGetLin(inm,key,dbuf);
           for (i=0; i<GmfMaxTyp; i++)
-            fbuf[i] = dbuf[off+i];
+            fbuf[i] = dbuf[i];
         }
         
         if ( sol->dim == 2 ) {
