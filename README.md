@@ -31,6 +31,6 @@ In a terminal, clone this repository:
 
 * There is also a [technical report](https://www.ljll.math.upmc.fr/frey/publications/RT-0253.pdf) describing its main features.
 
-### Remark :
+#### Remark :
 
 * The experimental branch `feature/multi-sols` allows the visualisation of a solution field stored in a .sol file that contains multiple solution fields.
