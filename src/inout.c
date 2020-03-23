@@ -615,6 +615,7 @@ int loadSol(pMesh mesh,char *filename,int numsol) {
   double       m[6],lambda[3],eigv[3][3],vp[2][2];
   int          inm,k,i,key,nel,size,type,iord,off,typtab[GmfMaxTyp],ver,dim;
   char        *ptr,data[128];
+  static int   first;
 
   strcpy(data,filename);
   ptr = strstr(data,".mesh");
@@ -627,7 +628,7 @@ int loadSol(pMesh mesh,char *filename,int numsol) {
     if (!(inm = GmfOpenMesh(data,GmfRead,&ver,&dim)) )
       return(0);
   }
-  if ( !quiet )  fprintf(stdout,"  Reading %s\n",data);
+  if ( first && !quiet )  fprintf(stdout,"  Reading %s\n",data);
 
   if ( dim != mesh->dim ) {
     fprintf(stderr,"  %%%% Wrong dimension %d.\n",dim);
@@ -688,6 +689,7 @@ int loadSol(pMesh mesh,char *filename,int numsol) {
   if ( numsol >= type ) { numsol = numsol%type; }
   while ( numsol < 0  ) { numsol = type+numsol; }
 
+  printf(  " Reading sol field %d\n",numsol+1);
 
   off = 0;
   for (i=0; i<numsol; i++) {

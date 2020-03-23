@@ -8,6 +8,10 @@ int zaldy2(pMesh mesh) {
   int        k,nbf;
   
   /* memory alloc. */
+  if ( mesh->sol ) {
+    free( mesh->sol );
+    mesh->sol = NULL;
+  }
   mesh->sol = (pSolution)M_calloc(mesh->nbb+1,sizeof(struct solu),"zaldy2");
   assert(mesh->sol);
 

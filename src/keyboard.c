@@ -41,6 +41,7 @@ static void usage() {
   fprintf(stdout,"m - data          o - iso-lines      w - tensor/vector\n");
   fprintf(stdout,"v - streamlines   k - toggle elev.   K - elev. coeff.\n");
   fprintf(stdout,"j - toggle deco   p - palette        S - play animation\n");
+  fprintf(stdout,"> - next field   < - prev field\n");
   
   fprintf(stdout,"+/- scale object  z/Z scale view\n");
   fprintf(stdout,"F1,F2,F3 - clipping: On/Off, Edit, Freeze\n");
@@ -533,8 +534,8 @@ void keyScene(unsigned char key,int x,int y) {
         break;
       }
       else {
-    if ( p->rubber == 2 )
-      setPersp(sc,p,1);
+        if ( p->rubber == 2 )
+          setPersp(sc,p,1);
         else 
           p->fovy = max(0.9*p->fovy,1e-05);
         farclip(1);
@@ -848,7 +849,19 @@ void keyScene(unsigned char key,int x,int y) {
       else if ( p->pmode == CAMERA )
         pathAdd(sc,x,y);
       break;
-    
+
+    case '>':  /* next field */
+      keyMetric('>',0,0);
+      post = TRUE;
+      dolist = TRUE;
+      break;
+
+    case '<':  /* prev field */
+      keyMetric('<',0,0);
+      post = TRUE;
+      dolist = TRUE;
+      break;
+
     case '%':
       fprintf(stdout,"reference (%d): ",refpick); fflush(stdout);
       fflush(stdin);

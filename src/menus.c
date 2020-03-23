@@ -876,7 +876,7 @@ void keyMetric(unsigned char key,int x,int y) {
   pPoint  ppt;
   float   maxd;
   int     k,kk;
-  ubyte   post=TRUE;
+  ubyte   post=TRUE,remap=FALSE;
 
   /* default */
   sc   = cv.scene[currentScene()];
@@ -1002,9 +1002,42 @@ void keyMetric(unsigned char key,int x,int y) {
     sc->item ^= S_PALETTE;
     break;
 
+  case '>': /* Next field */
+    if ( !mesh->nbb ) return;
+    ++fieldidx;
+    if ( !loadSol(mesh,mesh->name,fieldidx) )
+      bbfile(mesh);
+    remap    = TRUE;
+    post     = TRUE;
+    break;
+
+  case '<': /* Prev field */
+    if ( !mesh->nbb ) return;
+    --fieldidx;
+    if ( !loadSol(mesh,mesh->name,fieldidx) )
+      bbfile(mesh);
+    remap = TRUE;
+    post  = TRUE;
+    break;
+
   default:
     post = FALSE;
     break;
+  }
+
+  if ( remap ) {
+    // Recompute palette
+    sc->iso.palette = 0;
+    parsop(sc,mesh);
+    setupPalette(sc,mesh);
+
+    if ( sc->mode & S_MAP ) {
+      if ( sc->clip->active & C_ON ) sc->clip->active |= C_REDO;
+    }
+
+    // Draw map and iso
+    doMapLists(sc,mesh,1);
+    doIsoLists(sc,mesh,1);
   }
   if ( post )  glutPostRedisplay();
 }
@@ -1057,6 +1090,9 @@ int createMenus(pScene sc,pMesh mesh) {
     smenu = glutCreateMenu(menuMetric);
     glutAddMenuEntry("[m] Toggle metric",'m');
     glutAddMenuEntry("[p] Toggle palette",'p');
+    glutAddMenuEntry("[>] Next field",'>');
+    glutAddMenuEntry("[<] Prev field",'<');
+
     if ( mesh->typage == 2 )
       glutAddMenuEntry("[o] Toggle iso-lines",'l');
     if ( mesh->ntet+mesh->nhex > 0 && mesh->nfield == 1 )
