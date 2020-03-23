@@ -30,3 +30,7 @@ In a terminal, clone this repository:
 * Thanks to C. Dobrzynski, there is an [inline HTML documentation](https://www.ljll.math.upmc.fr/frey/logiciels/Docmedit.dir/index.html) available in french.
 
 * There is also a [technical report](https://www.ljll.math.upmc.fr/frey/publications/RT-0253.pdf) describing its main features.
+
+#### Remark :
+
+* The experimental branch `feature/multi-sols` allows the visualisation of a solution field stored in a .sol file that contains multiple solution fields.
