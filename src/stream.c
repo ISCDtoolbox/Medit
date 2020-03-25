@@ -24,20 +24,24 @@ enum   {Euler=1,RK4=2};
 int locateTetra(pMesh mesh,int nsdep,double *p,double *cb) {
   pTetra   pt;
   pPoint   p0,p1,p2,p3;
-  double   eps,vto,bx,by,bz,cx,cy,cz,dx,dy,dz,vx,vy,vz,apx,apy,apz;
-  double   vol1,vol2,vol3,vol4,dd; 
-  int     *adj,base,iadr,nsfin,nsprv;
+  double   vto,bx,by,bz,cx,cy,cz,dx,dy,dz,vx,vy,vz,apx,apy,apz;
+  double   vol1,vol2,vol3,vol4,dd;
+  int     *adj,base,it,iadr,nsfin,nsprv;
 
+  it    = 0;
   nsfin = nsdep;
-  nsprv = nsdep;
+  nsprv = -1;
   base  = ++mesh->mark;
-  while ( nsfin > 0 ) {
+  memset(cb,0,4*sizeof(double));
+  do {
     pt = &mesh->tetra[nsfin];
-    if ( pt->mark == base )  return(nsprv);
+    if ( !pt->v[0]  || (it > 0 && nsfin == nsdep) )  return(nsprv);
+    else if ( pt->mark == base )  break;
     pt->mark = base;
-
     iadr = 4*(nsfin-1)+1;
     adj  = &mesh->adja[iadr];
+
+    /* volume of tetra */
     p0 = &mesh->point[pt->v[0]];
     p1 = &mesh->point[pt->v[1]];
     p2 = &mesh->point[pt->v[2]];
@@ -53,12 +57,12 @@ int locateTetra(pMesh mesh,int nsdep,double *p,double *cb) {
     dx  = p3->c[0] - p0->c[0];
     dy  = p3->c[1] - p0->c[1];
     dz  = p3->c[2] - p0->c[2];
+
     /* test volume */
     vx  = cy*dz - cz*dy;
     vy  = cz*dx - cx*dz;
     vz  = cx*dy - cy*dx;
     vto = bx*vx + by*vy + bz*vz;
-    eps = EPS*vto;
 
     /* barycentric */
     apx = p[0] - p0->c[0];
@@ -67,76 +71,57 @@ int locateTetra(pMesh mesh,int nsdep,double *p,double *cb) {
 
     /* p in half-space lambda_2 > 0 */
     vol2  = apx*vx + apy*vy + apz*vz;
-    if ( vol2 < eps ) {
+    if ( vol2 < 0.0 ) {
       nsprv = nsfin;
       nsfin = adj[1];
-      if ( !nsfin ) {
-        cb[1] = 0.0;
-        nsfin = nsprv;
-      }
-      else
-        continue;
+      continue;
     }
     /* p in 3 */
     vx  = by*apz - bz*apy;
     vy  = bz*apx - bx*apz;
     vz  = bx*apy - by*apx;
     vol3 = dx*vx + dy*vy + dz*vz;
-    if ( vol3 < eps ) {
+    if ( vol3 < 0.0 ) {
       nsprv = nsfin;
       nsfin = adj[2];
-      if ( !nsfin ) {
-        cb[2] = 0.0;
-        nsfin = nsprv;
-      }
-      else
-        continue;
+      continue;
     }
     /* p in 4 */
     vol4 = -cx*vx - cy*vy - cz*vz;
-    if ( vol4 < eps ) {
+    if ( vol4 < 0.0 ) {
       nsprv = nsfin;
       nsfin = adj[3];
-      if ( !nsfin ) {
-        cb[3] = 0.0;
-        nsfin = nsprv;
-      }
-      else
-        continue;
+      continue;
     }
     /* p in 1 */
     vol1 = vto - vol2 - vol3 - vol4;
-    if ( vol1 < eps ) {
+    if ( vol1 < 0.0 ) {
       nsprv = nsfin;
       nsfin = adj[0];
-      if ( !nsfin ) {
-        cb[0] = 0.0;
-        nsfin = nsprv;
-      }
-      else
-        continue;
+      continue;
     }
     dd = fabs(vol1+vol2+vol3+vol4);
     if ( dd > 1.e-200 ) {
       dd = 1.0 / dd;
-      cb[0] = fabs(vol1) * dd;
-      cb[1] = fabs(vol2) * dd;
-      cb[2] = fabs(vol3) * dd;
-      cb[3] = fabs(vol4) * dd; 
+      cb[0] = vol1 * dd;
+      cb[1] = vol2 * dd;
+      cb[2] = vol3 * dd;
+      cb[3] = vol4 * dd;
     }
     pt->cpt++;
     return(nsfin);
   }
+  while ( nsfin && ++it <= mesh->ntet );
 
   /* no need for exhaustive search */
-  return(nsprv);
+  return(nsprv > 0 ? nsprv : 0 );
 }
 
 
 /* return 1 if point in tetra, adjacent #, if not */
 int inSubTetra(pPoint pt[4],double *p,double *cb) {
   double   bx,by,bz,cx,cy,cz,dx,dy,dz,vx,vy,vz,apx,apy,apz;
-  double   epsra,vol1,vol2,vol3,vol4,dd; 
+  double   epsra,vol1,vol2,vol3,vol4,dd;
 
   /* barycentric */
   bx  = pt[1]->c[0] - pt[0]->c[0];
@@ -169,7 +154,7 @@ int inSubTetra(pPoint pt[4],double *p,double *cb) {
   vz  = bx*apy - by*apx;
   vol3 = dx*vx + dy*vy + dz*vz;
   if ( epsra > vol3 )  return(-2);
-  
+
   /* p in 4 */
   vol4 = -cx*vx - cy*vy - cz*vz;
   if ( epsra > vol4 )  return(-3);
@@ -183,8 +168,8 @@ int inSubTetra(pPoint pt[4],double *p,double *cb) {
   cb[0] = vol1 * dd;
   cb[1] = vol2 * dd;
   cb[2] = vol3 * dd;
-  cb[3] = vol4 * dd; 
-  
+  cb[3] = vol4 * dd;
+
   return(1);
 }
 
@@ -290,7 +275,7 @@ printf("tet1 : on sort en %d\n",in);
       nsfin = adj[0];
       continue;
     }
-    
+
     /* tetra5: 0,6,2,7 : 1 external face */
     pt[0] = &mesh->point[ph->v[0]];
     pt[1] = &mesh->point[ph->v[6]];
@@ -332,7 +317,7 @@ int locateTria(pMesh mesh,int nsdep,double *p,double *cb) {
   pTriangle pt;
   pPoint    p0,p1,p2;
   double    ax,ay,bx,by,cx,cy;
-  double    aire1,aire2,aire3,dd; 
+  double    aire1,aire2,aire3,dd;
   int      *adj,base,iadr,it,nsfin,nsprv;
   char      isign;
 
@@ -378,7 +363,7 @@ int locateTria(pMesh mesh,int nsdep,double *p,double *cb) {
     aire2 = isign*(cx*ay - cy*ax);
     if ( aire2 < 0.0 ) {
       nsprv = nsfin;
-      nsfin = adj[1]; 
+      nsfin = adj[1];
       continue;
     }
     aire3 = isign*dd - aire1 - aire2;;
@@ -411,7 +396,7 @@ int inTetra(pMesh mesh,int nsdep,double *p,double *cb) {
   pTetra   pt;
   pPoint   p0,p1,p2,p3;
   double   bx,by,bz,cx,cy,cz,dx,dy,dz,vx,vy,vz,apx,apy,apz;
-  double   epsra,vol1,vol2,vol3,vol4,dd; 
+  double   epsra,vol1,vol2,vol3,vol4,dd;
 
   pt = &mesh->tetra[nsdep];
   if ( !pt->v[0] )  return(0);
@@ -452,11 +437,11 @@ int inTetra(pMesh mesh,int nsdep,double *p,double *cb) {
   vz  = bx*apy - by*apx;
   vol3 = dx*vx + dy*vy + dz*vz;
   if ( epsra > vol3 )  return(0);
-    
+
   /* p in 4 */
   vol4 = -cx*vx - cy*vy - cz*vz;
   if ( epsra > vol4 )  return(0);
-  
+
   /* p in 1 */
   vol1 = -epsra * EPSR - vol2 - vol3 - vol4;
   if ( epsra > vol1 )  return(0);
@@ -466,7 +451,7 @@ int inTetra(pMesh mesh,int nsdep,double *p,double *cb) {
   cb[0] = vol1 * dd;
   cb[1] = vol2 * dd;
   cb[2] = vol3 * dd;
-  cb[3] = vol4 * dd; 
+  cb[3] = vol4 * dd;
 
   pt->cpt++;
   return(1);
@@ -510,7 +495,7 @@ int inTria(pMesh mesh,int nsdep,double *p,double *cb) {
   ay = p[1] - p0->c[1];
   aire2 = isign*(cx*ay - cy*ax);
   if ( epsra > aire2 )  return(0);
-  
+
   aire3 = -epsra*EPSR - aire1 - aire2;
   if ( epsra > aire3 )  return(0);
 
@@ -698,7 +683,7 @@ int getIso(pScene sc,double norm,double *hsv) {
   hsv[1] = 1.0;
   hsv[2] = 0.8;
   if ( norm < sc->iso.val[0] )
-    norm = sc->iso.val[0];  
+    norm = sc->iso.val[0];
   else if ( norm > sc->iso.val[MAXISO-1] )
     norm = sc->iso.val[MAXISO-1];
 
@@ -718,7 +703,7 @@ static void addPoint(pScene sc,Stream *st,double *p) {
   if ( st->stnp == 1 ) {
     st->stpt[1][0] = p[0];
     st->stpt[1][1] = p[1];
-    st->stpt[1][2] = sc->mode & S_ALTITUDE ? altcoef*st->norm : p[2]; 
+    st->stpt[1][2] = sc->mode & S_ALTITUDE ? altcoef*st->norm : p[2];
     st->stiso[1]   = getIso(sc,st->norm,hsv);
     st->stcol[1]   = hsv[0];
     hsv[1] = 1.0;
@@ -761,7 +746,7 @@ int filterPoint(pScene sc,Stream *st,double *p,ubyte color) {
   st->stnp++;
   st->stpt[st->stnp][0] = p[0];
   st->stpt[st->stnp][1] = p[1];
-  st->stpt[st->stnp][2] = sc->mode & S_ALTITUDE ? altcoef*st->norm : p[2]; 
+  st->stpt[st->stnp][2] = sc->mode & S_ALTITUDE ? altcoef*st->norm : p[2];
   st->stiso[st->stnp]   = getIso(sc,st->norm,hsv);
   st->stcol[st->stnp]   = hsv[0];
 
@@ -855,7 +840,7 @@ static int nxtPoint2D(pMesh mesh,int nsdep,double *p,double step,double *v) {
   norm = field2DInterp(mesh,k,cb,v1);
   pt = &mesh->tria[k];
   pt->cpt--;
-  
+
   xp2[0] = p[0] + 0.5*step*v1[0];
   xp2[1] = p[1] + 0.5*step*v1[1];
 
@@ -902,7 +887,7 @@ int parseStream(pScene sc,pMesh mesh) {
     if ( !in )  return(0);
   }
   if ( !quiet )  fprintf(stdout,"  Reading %s\n",data);
-  sc->stream = createStream(sc,mesh); 
+  sc->stream = createStream(sc,mesh);
   st = sc->stream;
 
   while ( !feof(in) ) {
@@ -933,13 +918,13 @@ int parseStream(pScene sc,pMesh mesh) {
     }
     else if ( !strcmp(key,"box") ) {
       ret = fscanf(in,"%f %f",&x,&y);
-      if ( ret != 2 )  break; 
+      if ( ret != 2 )  break;
       st->xmin = x - mesh->xtra;
       st->xmax = y - mesh->xtra;
       ret = fscanf(in,"%f %f",&x,&y);
       if ( ret != 2 )  break;
       st->ymin = x - mesh->ytra;
-      st->ymax = y - mesh->ytra; 
+      st->ymax = y - mesh->ytra;
       if ( mesh->dim == 3 ) {
         ret = fscanf(in,"%f %f",&x,&y);
         if ( ret != 2 )  break;
@@ -1025,35 +1010,35 @@ int listTetraStream(pScene sc,pMesh mesh,float *pp,int iel,double *cb,char squie
   p[0] = pp[0];
   p[1] = pp[1];
   p[2] = pp[2];
-  if ( reftype == LPoint && refitem > 0 ) {
+  if ( reftype == LPoint && refitem > 0 )
     curiel = mesh->point[refitem].tmp;
-  }
+  else
+    curiel = 1;
+  curiel = locateTetra(mesh,curiel,p,cb);
+
   /* start from given reference */
-  if ( !iel ) {
-    curiel = locateTetra(mesh,curiel,p,cb);
-    if ( !curiel ) {
-      for (curiel=1; curiel<=mesh->ntet; curiel++) {
-        pt = &mesh->tetra[curiel];
-        if ( pt->v[0] && inTetra(mesh,curiel,p,cb) )  break;
-      }
-      if ( curiel > mesh->ntet ) {
-        st->nbstl--;
-        frst = 1-frst;
-        return(0);
-      }
+  if ( !curiel ) {
+    for (curiel=1; curiel<=mesh->ntet; curiel++) {
+      pt = &mesh->tetra[curiel];
+      if ( pt->v[0] && inTetra(mesh,curiel,p,cb) )  break;
+    }
+    if ( curiel > mesh->ntet ) {
+      st->nbstl--;
+      frst = 1-frst;
+      return(0);
     }
   }
-
   st->norm = field3DInterp(mesh,curiel,cb,v);
   memcpy(cbdep,cb,4*sizeof(double));
   memcpy(vdep,v,3*sizeof(double));
   st->size = sizeTetra(mesh,curiel);
   sizedep  = st->size;
   normdep  = st->norm;
+
   if ( st->norm < EPSS )  return(0);
   ldt      = 0.0;
   step     = 0.05 * st->size;
-  
+
   if ( sc->par.maxtime < FLT_MAX ) {
     sc->par.cumtim = sc->par.timdep;
     step = min(0.02*sc->par.dt,step);
@@ -1155,7 +1140,7 @@ int listTetraStream(pScene sc,pMesh mesh,float *pp,int iel,double *cb,char squie
       pts[4*nbp+0] = p[0];
       pts[4*nbp+1] = p[1];
       pts[4*nbp+2] = p[2];
-      pts[4*nbp+3] = st->norm;      
+      pts[4*nbp+3] = st->norm;
     }
     nbp++;
   }
@@ -1187,7 +1172,7 @@ int listTetraStream(pScene sc,pMesh mesh,float *pp,int iel,double *cb,char squie
     pts[4*nbp+0] = p[0];
     pts[4*nbp+1] = p[1];
     pts[4*nbp+2] = p[2];
-    pts[4*nbp+3] = st->norm;      
+    pts[4*nbp+3] = st->norm;
   }
   nbp++;
 
@@ -1227,7 +1212,7 @@ int listTetraStream(pScene sc,pMesh mesh,float *pp,int iel,double *cb,char squie
       pts[4*nbp+0] = p[0];
       pts[4*nbp+1] = p[1];
       pts[4*nbp+2] = p[2];
-      pts[4*nbp+3] = st->norm;      
+      pts[4*nbp+3] = st->norm;
     }
     nbp += ier;
   }
@@ -1238,7 +1223,7 @@ int listTetraStream(pScene sc,pMesh mesh,float *pp,int iel,double *cb,char squie
       pts[4*nbp+0] = p[0];
       pts[4*nbp+1] = p[1];
       pts[4*nbp+2] = p[2];
-      pts[4*nbp+3] = st->norm;     
+      pts[4*nbp+3] = st->norm;
     }
     nbp++;
   }
@@ -1299,7 +1284,7 @@ int listHexaStream(pScene sc,pMesh mesh,float *pp,int squiet) {
   nsdep = mesh->nhex / 2;
   step  = 0.0f;
   nbar  = 0;
-  if ( ddebug ) 
+  if ( ddebug )
     printf("   start point %d: %f %f %f\n",
            3*k/3,st->listp[k],st->listp[k+1],st->listp[k+2]);
 
@@ -1317,7 +1302,7 @@ printf("DEPART %d\n",depart);
 ph = &mesh->hexa[depart];
 printf("sommets %d %d %d %d %d %d %d %d\n",
 ph->v[0],ph->v[1],ph->v[2],ph->v[3],ph->v[4],ph->v[5],ph->v[6],ph->v[7]);
-  
+
   if ( !depart ) {
     for (depart=1; depart<=mesh->nhex; depart++) {
       ph = &mesh->hexa[depart];
@@ -1465,7 +1450,7 @@ ph->v[0],ph->v[1],ph->v[2],ph->v[3],ph->v[4],ph->v[5],ph->v[6],ph->v[7]);
     return(0);
   }
 
-  if ( !squiet && !ddebug ) {  
+  if ( !squiet && !ddebug ) {
     if ( nbar )
       fprintf(stdout,": %d (%d, %.2f) / %d lines",nbar,nbp,(float)nbp/nbar,k/3);
     chrono(OFF,&tt);
@@ -1718,12 +1703,12 @@ int listSaddleStream(pScene sc,pMesh mesh,int depart,float *pp,float *vv,double 
   st->listp[k]   = p[0] = pp[0];
   st->listp[k+1] = p[1] = pp[1];
   st->listp[k+2] = p[2] = 0.0;
-  
+
   for (i=1; i<=mesh->nt; i++) {
     pt = &mesh->tria[i];
     pt->cpt = 0;
   }
- 
+
   /* compute streamlines */
   nsold = nsdep = depart;
   nbp   = nbar   = 0;

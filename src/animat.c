@@ -129,7 +129,7 @@ int loadNextMesh(pMesh mesh,int km,int ks,int parse) {
 	if ( sc->mode & S_DISPL ) {
     meshCoord(mesh,1);
 	}
-  //setupPalette(sc,mesh);
+  /*setupPalette(sc,mesh);*/
   meshRef(sc,mesh);
   matSort(sc);
 
