@@ -3,6 +3,7 @@
 #include "extern.h"
 #include "eigenv.h"
 
+
 int loadMesh(pMesh mesh) {
   pPoint      ppt;
   pEdge       pr;
@@ -461,7 +462,7 @@ int saveMesh(pScene sc,pMesh mesh,char *fileout,ubyte clipon) {
   pTetra     ptt;
   pMaterial  pm;
   float      fp1,fp2,fp3;
-  int        outm,i,k,m,ver,np,nt,nq,ref;
+  int        outm,i,k,m,ver,np,nt,nq,ntt,ref;
 
   ver = GmfFloat;
   if ( !(outm = GmfOpenMesh(fileout,GmfWrite,ver,mesh->dim)) ) {
@@ -517,20 +518,22 @@ int saveMesh(pScene sc,pMesh mesh,char *fileout,ubyte clipon) {
     }
     if ( i == 3 )  nt++;
   }
-  GmfSetKwd(outm,GmfTriangles,nt);
-  for (k=1; k<=mesh->nt; k++) {
-    pt = &mesh->tria[k];
-    if ( !pt->v[0] )  continue;
-    m  = matRef(sc,pt->ref);
-    pm = &sc->material[m];
-    if ( pm->flag )  continue;
-    for (i=0; i<3; i++) {
-      if ( !mesh->point[pt->v[i]].tmp )  break;
+  if ( nt > 0 ) {
+    GmfSetKwd(outm,GmfTriangles,nt);
+    for (k=1; k<=mesh->nt; k++) {
+      pt = &mesh->tria[k];
+      if ( !pt->v[0] )  continue;
+      m  = matRef(sc,pt->ref);
+      pm = &sc->material[m];
+      if ( pm->flag )  continue;
+      for (i=0; i<3; i++) {
+        if ( !mesh->point[pt->v[i]].tmp )  break;
+      }
+      if ( i < 3 )  continue;
+      ref = pt->ref;
+      GmfSetLin(outm,GmfTriangles,mesh->point[pt->v[0]].tmp,mesh->point[pt->v[1]].tmp,
+                mesh->point[pt->v[2]].tmp,ref);
     }
-    if ( i < 3 )  continue;
-    ref = pt->ref;
-    GmfSetLin(outm,GmfTriangles,mesh->point[pt->v[0]].tmp,mesh->point[pt->v[1]].tmp,
-              mesh->point[pt->v[2]].tmp,ref);
   }
 
   /* write quads */
@@ -545,19 +548,21 @@ int saveMesh(pScene sc,pMesh mesh,char *fileout,ubyte clipon) {
       if ( !mesh->point[pq->v[i]].tmp )  break;
     if ( i == 4 )  nq++;
   }
-  GmfSetKwd(outm,GmfQuadrilaterals,nq);
-  for (k=1; k<=mesh->nq; k++) {
-    pq = &mesh->quad[k];
-    if ( !pq->v[0] )  continue;
-    m  = matRef(sc,pq->ref);
-    pm = &sc->material[m];
-    if ( pm->flag )  continue;
-    for (i=0; i<4; i++)
-      if ( !mesh->point[pq->v[i]].tmp )  break;
-    if ( i < 4 )  continue;
-    ref = pq->ref;
-    GmfSetLin(outm,GmfQuadrilaterals,mesh->point[pq->v[0]].tmp,mesh->point[pq->v[1]].tmp,
-              mesh->point[pq->v[2]].tmp,mesh->point[pq->v[3]].tmp,ref);
+  if ( nq > 0 ) {
+    GmfSetKwd(outm,GmfQuadrilaterals,nq);
+    for (k=1; k<=mesh->nq; k++) {
+      pq = &mesh->quad[k];
+      if ( !pq->v[0] )  continue;
+      m  = matRef(sc,pq->ref);
+      pm = &sc->material[m];
+      if ( pm->flag )  continue;
+      for (i=0; i<4; i++)
+        if ( !mesh->point[pq->v[i]].tmp )  break;
+      if ( i < 4 )  continue;
+      ref = pq->ref;
+      GmfSetLin(outm,GmfQuadrilaterals,mesh->point[pq->v[0]].tmp,mesh->point[pq->v[1]].tmp,
+                mesh->point[pq->v[2]].tmp,mesh->point[pq->v[3]].tmp,ref);
+    }
   }
 
   /* write edges */
@@ -578,7 +583,7 @@ int saveMesh(pScene sc,pMesh mesh,char *fileout,ubyte clipon) {
   }
 
   /* write tetrahedra */
-  GmfSetKwd(outm,GmfTetrahedra,mesh->ntet);
+  ntt = 0;
   for (k=1; k<=mesh->ntet; k++) {
     ptt = &mesh->tetra[k];
     if ( !ptt->v[0] )  continue;
@@ -587,19 +592,31 @@ int saveMesh(pScene sc,pMesh mesh,char *fileout,ubyte clipon) {
     if ( pm->flag )  continue;
     for (i=0; i<4; i++)
       if ( !mesh->point[ptt->v[i]].tmp )  break;
-    if ( i < 4 )  continue;
-    ref = ptt->ref;
-    GmfSetLin(outm,GmfTetrahedra,mesh->point[ptt->v[0]].tmp,mesh->point[ptt->v[1]].tmp,
-              mesh->point[ptt->v[2]].tmp,mesh->point[ptt->v[3]].tmp,ref);
+    if ( i == 4 )  ntt++;
+  }
+  if ( ntt > 0 ) {
+    GmfSetKwd(outm,GmfTetrahedra,ntt);
+    for (k=1; k<=mesh->ntet; k++) {
+      ptt = &mesh->tetra[k];
+      if ( !ptt->v[0] )  continue;
+      m  = matRef(sc,ptt->ref);
+      pm = &sc->material[m];
+      if ( pm->flag )  continue;
+      for (i=0; i<4; i++)
+        if ( !mesh->point[ptt->v[i]].tmp )  break;
+      if ( i < 4 )  continue;
+      ref = ptt->ref;
+      GmfSetLin(outm,GmfTetrahedra,mesh->point[ptt->v[0]].tmp,mesh->point[ptt->v[1]].tmp,
+                mesh->point[ptt->v[2]].tmp,mesh->point[ptt->v[3]].tmp,ref);
+    }
   }
 
   /* write hexahedra */
-
   if ( !quiet ) {
     fprintf(stdout,"     TOTAL NUMBER OF VERTICES   %8d\n",np);
     fprintf(stdout,"     TOTAL NUMBER OF TRIANGLES  %8d\n",nt);
     fprintf(stdout,"     TOTAL NUMBER OF QUADS      %8d\n",nq);
-    fprintf(stdout,"     TOTAL NUMBER OF TETRA      %8d\n",mesh->ntet);
+    fprintf(stdout,"     TOTAL NUMBER OF TETRA      %8d\n",ntt);
   }
 
   GmfCloseMesh(outm);
