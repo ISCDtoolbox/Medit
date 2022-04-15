@@ -182,7 +182,7 @@ int matRef(pScene sc,int ref) {
 /* reshape material window */
 void matReshape(int width,int height) {
   glutSetWindow(matwin);
-  glViewport(0,0,Width,Height);
+  glViewport(0,0,scale*Width,scale*Height);
   glMatrixMode(GL_PROJECTION);
   glLoadIdentity();
   gluOrtho2D(0,Width,Height,0);
@@ -259,7 +259,7 @@ void matsubReshape(int x,int y) {
   GLfloat    sunpos[4] = {5.,2.,10.0,0.};
 
   glutSetWindow(m_subwin);
-  glViewport(0,0,200,200);
+  glViewport(0,0,scale*200,scale*200);
   glMatrixMode(GL_PROJECTION);
   glLoadIdentity();
   gluPerspective(50.0,1.0,0.01f,100.0f);
