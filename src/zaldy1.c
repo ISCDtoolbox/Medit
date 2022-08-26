@@ -56,7 +56,7 @@ int zaldy1(pMesh mesh) {
 
     if ( mesh->ntg ) {
       mesh->extra->t = (float*)M_calloc(3*mesh->ntg+1,sizeof(float),"inmesh");
-	  assert(mesh->extra->n);
+	  assert(mesh->extra->t);
     }
   }
 
