@@ -231,7 +231,12 @@ int hashHexa(pMesh mesh) {
     pp = 0;
     link[l] = 0;
     hvoy[l] = 0;
-    while ( ll != inival ) {
+    /* Remark: test on ll positivity is needed because the part of
+     * hcode array that is initialized (6*mesh->nhex/4) is not
+     * consistent with the part of the array that can be accessed
+     * through keys. In consequences, the travel accross links may end
+     * on a 0 value instead the inival one. */
+    while ( ll>0 && ll != inival ) {
       kk = (ll-1) / 6 +1;
       ii = (ll-1) % 6;
       ph1   = &mesh->hexa[kk];
