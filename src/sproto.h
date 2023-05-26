@@ -71,6 +71,7 @@ int    loadSol(pMesh mesh,char *filename,int numsol);
 
 /* ilists.c */
 GLuint listTriaIso(pScene ,pMesh );
+GLuint listTriaIso2(pScene ,pMesh );
 GLuint listQuadIso(pScene ,pMesh );
 GLuint listTetraIso(pScene ,pMesh );
 
