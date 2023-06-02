@@ -19,6 +19,7 @@ ubyte     quiet,option,morphing,stereoMode;
 int       menu,amenu,fmenu,femenu,vmenu,mmenu,smenu;
 int       clmenu,cmenu,vwmenu,txmenu,trmenu;
 int       animdep,animfin;
+float     scale=1; // for retina h-dpi screen
 
 
 static void excfun(int sigid) {
