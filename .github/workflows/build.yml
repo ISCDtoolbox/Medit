@@ -1,0 +1,29 @@
+name: Build and Test
+
+on:
+  push:
+    branches: [main]
+  pull_request: # Any pull request
+  workflow_dispatch: # Allow manual triggering of the workflow
+  schedule:
+    - cron: "0 0 * * *" # Run at midnight UTC every day
+
+jobs:
+  build-and-test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - windows-latest
+          - macos-latest
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - run: sudo apt-get install freeglut3-dev libxmu-dev libxi-dev
+
+      - run: cmake -S . -B build
+      - run: cmake --build build
