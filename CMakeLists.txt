@@ -77,7 +77,7 @@ elseif(UNIX)
 	if(NOT OPENGL_FOUND)
 		message(ERROR " OPENGL not found!")
 	endif(NOT OPENGL_FOUND)
-	set(GL_LIBS ${OPENGL_LIBRARIES} ${GLUT_LIBRARY} )
+	set(GL_LIBS ${OPENGL_LIBRARIES} ${GLUT_LIBRARIES} )
 
 	target_link_libraries( Medit3D ${GL_LIBS})
 	INSTALL(               TARGETS Medit3D LIBRARY  DESTINATION "$ENV{HOME}/lib")
