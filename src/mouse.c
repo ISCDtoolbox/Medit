@@ -1,6 +1,7 @@
 #include "medit.h"
 #include "extern.h"
 #include "sproto.h"
+#include "mesh.h"
 	
 #ifndef  ON
 #define  ON     1
@@ -150,7 +151,7 @@ void mouse(int button,int state,int x,int y) {
   tr->mstate  = state;
   tr->mbutton = button;
 
-  /* check if ctrl-shift-alt pressed */
+  /* check if shift-alt pressed */
   keyact = glutGetModifiers();
 
   if ( state == GLUT_DOWN ) {
@@ -159,11 +160,41 @@ void mouse(int button,int state,int x,int y) {
 
     if ( button == GLUT_LEFT_BUTTON ) {
       if ( keyact & GLUT_ACTIVE_SHIFT ) {
-        /* entity designation */
-        picking = GL_TRUE;
-				if ( sc->picklist ) glDeleteLists(sc->picklist,1);
-				sc->picklist = pickingScene(sc,x,y,0);
-				return;
+	      // Picking mode for the tetrahedron with SHIFT for computing the metrics.
+	      picking = GL_TRUE;
+	      if ( sc->picklist ) glDeleteLists(sc->picklist,1);
+	      sc->picklist = pickingScene(sc,x,y,0);
+	      printf("\n ====== SHIFT Mode activated ======\npicking attempt, select a tetrahedron to display its metrics\n");
+
+	      int tetIndex = pickingTetrahedron(sc, x, y); 
+	      
+	      if (tetIndex > 0) {
+		      printf("\n ======== Results of pickingTetrahedron =======\ntetIndex = %d, reftype = %d\n", tetIndex, reftype);
+
+		      TetraMetrics metrics = compute_mesh_quality_edges_length(cv.mesh[sc->idmesh], tetIndex);
+		      metrics.id = tetIndex;
+		      sc->currentTetraMetrics = metrics;
+		      sc->displayTetraMetrics = 1;
+		      printf("Tetra %d: Quality = %g\n", tetIndex, metrics.quality);
+		      printf("Edge lengths: %g, %g, %g, %g, %g, %g\n",
+				      metrics.edgeLengths[0],
+				      metrics.edgeLengths[1],
+				      metrics.edgeLengths[2],
+				      metrics.edgeLengths[3],
+				      metrics.edgeLengths[4],
+				      metrics.edgeLengths[5]);
+	      } else {
+		      sc->displayTetraMetrics = 0;
+		      printf("Non-tetrahedron object selected.\n");
+
+		      if (sc->picklist) {
+			      glDeleteLists(sc->picklist, 1);
+			      sc->picklist = pickingScene(sc,x,y,0);
+		      }	   
+
+		      return;
+	      }      
+	
       }
       else if ( keyact & GLUT_ACTIVE_ALT ) {
 	    	/* zoom */

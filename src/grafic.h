@@ -1,6 +1,8 @@
 #ifndef _GRAFIC_H
 #define _GRAFIC_H
 
+#include "mesh.h"
+
 #define MAX_LIST  4
 #define MAXISO    5
 
@@ -232,6 +234,12 @@ typedef struct scene {
   ubyte      type;
   ubyte      isotyp;
   ubyte      picked;
+
+  /* Ajout des champs pour le mode qualité des tétraèdres */
+  TetraMetrics currentTetraMetrics;  // Store the metrics of the selected tetrahedron
+  ubyte displayTetraMetrics;         // Flag activating/deactivating the display of the 
+				     // tetrahedron metrics
+
 } Scene;
 typedef Scene * pScene;
 

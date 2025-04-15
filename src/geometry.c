@@ -1,6 +1,7 @@
 #include "medit.h"
 #include "extern.h"
 #include "sproto.h"
+#include "mesh.h"
 
 extern int getIso(pScene sc,double norm,double *hsv);
 

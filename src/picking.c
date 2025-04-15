@@ -1,7 +1,7 @@
 #include "medit.h"
 #include "extern.h"
 #include "sproto.h"
-
+#include "mesh.h"
 
 typedef struct color {
   GLuint  rMask,gMask,bMask,aMask;
@@ -913,6 +913,23 @@ GLuint pickingScene(pScene sc,int x,int y,int ident) {
     refmat = -1;
 
   return(dlist); 
+}
+
+int pickingTetrahedron(pScene sc, int x, int y) {
+    if (sc->picklist == 0) {	
+	// If no display list has been generated, we make a classic call    
+    	GLuint dlist = pickingScene(sc, x, y, 0);
+    	if (dlist == 0)
+        	return -1; // No element has been selected
+    }
+    // After the appeal to pickingScene, the global variables like refitem et reftype 
+    // have been updated.
+    if (reftype == LTets) {
+        // refitem already contains the tetrahedron index, such that :
+        // refitem = item - (mesh->nt + mesh->nq)
+        return refitem;
+    }
+    return -1; // If the element is not a tetrahedron
 }
 
 

@@ -1,12 +1,70 @@
 #include "medit.h"
 #include "extern.h"
 #include "sproto.h"
-
+#include "mesh.h"
 
 extern GLboolean  hasStereo;
 extern int       *pilmat,ipilmat,refmat,reftype,refitem;
 extern short      schw,schh;
 extern ubyte      quiet,fullscreen,tiling,stereoMode;
+
+
+void displayTetraMetrics(pScene sc) {
+    if (!sc->displayTetraMetrics)
+        return;
+
+    // Saving the projection matrix
+    glMatrixMode(GL_PROJECTION);
+    glPushMatrix();
+    glLoadIdentity();
+    // Configuring an orthographic matric
+    gluOrtho2D(0, sc->par.xs, 0, sc->par.ys);
+
+    // Saving the matrix MODELVIEW
+    glMatrixMode(GL_MODELVIEW);
+    glPushMatrix();
+    glLoadIdentity();
+
+    // Choosing a color for the text (white here)
+    glColor3f(1.0, 1.0, 1.0);
+
+    // Position of the text : here (10, sc->par.ys - 20)
+    // sc->par.xs is the width of the window, sc->par.ys its height.
+    // So we place the text 10 pixels away from the left side & 20 pixels below the upper side.
+    glRasterPos2i(10, sc->par.ys - 20);
+
+    // Preparing the string for the tetrahedron quality
+    char info[256];
+    sprintf(info, "Tetra %d: Quality = %g", sc->currentTetraMetrics.id, sc->currentTetraMetrics.quality);
+    // Positioning the text
+    for (int i = 0; info[i] != '\0'; i++) {
+        glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, info[i]);
+    }
+
+    // Positioning a 2nd line to display the edge lengths.
+    glRasterPos2i(10, sc->par.ys - 40);
+    sprintf(info, "Edge lengths: %g %g %g %g %g %g",
+            sc->currentTetraMetrics.edgeLengths[0],
+            sc->currentTetraMetrics.edgeLengths[1],
+            sc->currentTetraMetrics.edgeLengths[2],
+            sc->currentTetraMetrics.edgeLengths[3],
+            sc->currentTetraMetrics.edgeLengths[4],
+            sc->currentTetraMetrics.edgeLengths[5]);
+    // Displaying the edge lengths
+    for (int i = 0; info[i] != '\0'; i++) {
+        glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, info[i]);
+    }
+
+    // Restauring the matrix MODELVIEW en pop
+    glPopMatrix();
+
+    // Restauring the projection matrix and pulling it out of 2D mode
+    glMatrixMode(GL_PROJECTION);
+    glPopMatrix();
+
+    // Coming back to MODELVIEW default mode
+    glMatrixMode(GL_MODELVIEW);
+}
 
 
 /* return current active scene */
@@ -651,6 +709,8 @@ void redrawScene() {
     glTranslatef(sc->cx,sc->cy,sc->cz);
     drawModel(sc);
     if ( sc->type & S_DECO )  redrawStatusBar(sc);
+    
+    displayTetraMetrics(sc);
   }
 
   else {
@@ -686,6 +746,8 @@ void redrawScene() {
     drawModel(sc);
     if ( sc->type & S_DECO )  redrawStatusBar(sc);
 
+    displayTetraMetrics(sc);
+
     /* right view */
     glDrawBuffer(GL_BACK_RIGHT);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -707,7 +769,10 @@ void redrawScene() {
     glTranslatef(sc->cx,sc->cy,sc->cz);
     drawModel(sc);
     if ( sc->type & S_DECO )  redrawStatusBar(sc);
+
+    displayTetraMetrics(sc);
   }
+
 
   /* refresh screen */
   if ( saveimg && animate )
