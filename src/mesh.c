@@ -483,7 +483,7 @@ static const double epsd2 = 1e-12;
 TetraMetrics compute_mesh_quality_edges_length(pMesh mesh, int tetraIndex) {
     TetraMetrics metrics;
     
-    // Accès au tétraèdre ciblé (se méfier de la convention des indices 1 base etc)
+    // Accès au tétraèdre ciblé
     pTetra tet = &mesh->tetra[tetraIndex];
     
     // Récupérer les 4 points constituants du tétraèdre
@@ -555,9 +555,12 @@ TetraMetrics compute_mesh_quality_edges_length(pMesh mesh, int tetraIndex) {
         return metrics;
     }
     
-    // La formule de tet_quality 
-    metrics.quality = vol6 / (S * sqrt(S));
-    
+    // Calcul de la qualité selon la formule modifiée :
+    // Pour un tétraèdre régulier de longueur d'arête l, 
+    // le rapport calculé est 1/(12sqrt(3)), on multiplie 
+    // par 12sqrt(3) pour obtenir 1.
+    metrics.quality = (vol6 * (12 * sqrt(3))) / (S * sqrt(S));  
+
     return metrics;
 }
 
