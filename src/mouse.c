@@ -151,45 +151,59 @@ void mouse(int button,int state,int x,int y) {
   tr->mstate  = state;
   tr->mbutton = button;
 
-  /* check if shift-alt pressed */
+  /* check the actions on the keys */
   keyact = glutGetModifiers();
 
   if ( state == GLUT_DOWN ) {
     tracking = GL_TRUE;
     lasttime = glutGet(GLUT_ELAPSED_TIME);
 
+  /* check if shift+click pressed */
     if ( button == GLUT_LEFT_BUTTON ) {
       if ( keyact & GLUT_ACTIVE_SHIFT ) {
-	      // Picking mode for the tetrahedron with SHIFT for computing the metrics.
+	      // Picking mode for computing tetrahedron metrics using SHIFT.
 	      picking = GL_TRUE;
+
+	      printf("\n=================================================\n");
+	      printf("===== SHIFT Mode Activated: Picking Attempt =====\n");
+	      printf("=================================================\n");
+
+	      // Clean up any previous display list
 	      if ( sc->picklist ) glDeleteLists(sc->picklist,1);
+              
+	      // Create a new display list to highlight the selected object
 	      sc->picklist = pickingScene(sc,x,y,0);
-	      printf("\n ====== SHIFT Mode activated ======\npicking attempt, select a tetrahedron to display its metrics\n");
-
-	      int tetIndex = pickingTetrahedron(sc, x, y); 
 	      
-	      if (tetIndex > 0) {
-		      printf("\n ======== Results of pickingTetrahedron =======\ntetIndex = %d, reftype = %d\n", tetIndex, reftype);
+	      int tetIndex = pickingTetrahedron(sc, x, y); 
 
+	      if (tetIndex > 0) {
 		      TetraMetrics metrics = compute_mesh_quality_edges_length(cv.mesh[sc->idmesh], tetIndex);
 		      metrics.id = tetIndex;
 		      sc->currentTetraMetrics = metrics;
 		      sc->displayTetraMetrics = 1;
-		      printf("Tetra %d: Quality = %g\n", tetIndex, metrics.quality);
-		      printf("Edge lengths: %g, %g, %g, %g, %g, %g\n",
+		      
+		      // Print the computed metrics
+		      printf("\n====================== Tetrahedron Metrics ===================\n");
+		      printf("Tetrahedron %d:\n", tetIndex);
+		      printf("  Quality: %g\n", metrics.quality);
+		      printf("  Edge Lengths: %.5g, %.5g, %.5g, %.5g, %.5g, %.5g\n",
 				      metrics.edgeLengths[0],
 				      metrics.edgeLengths[1],
 				      metrics.edgeLengths[2],
 				      metrics.edgeLengths[3],
 				      metrics.edgeLengths[4],
 				      metrics.edgeLengths[5]);
+		      printf("==============================================================\n");
 	      } else {
 		      sc->displayTetraMetrics = 0;
-		      printf("Non-tetrahedron object selected.\n");
-
+		      
+		      printf("\n---------------------------------------------\n");
+		      printf("No tetrahedron object selected.\n");
+		      printf("---------------------------------------------\n");                      
+		      // Optional, cleanup the display list if needed
 		      if (sc->picklist) {
-			      glDeleteLists(sc->picklist, 1);
-			      sc->picklist = pickingScene(sc,x,y,0);
+			      //glDeleteLists(sc->picklist, 1);
+			      //sc->picklist = pickingScene(sc,x,y,0);
 		      }	   
 
 		      return;

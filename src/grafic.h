@@ -235,10 +235,10 @@ typedef struct scene {
   ubyte      isotyp;
   ubyte      picked;
 
-  /* Ajout des champs pour le mode qualité des tétraèdres */
+  /* Adding the field for the quality mode of the tetrahedra */
   TetraMetrics currentTetraMetrics;  // Store the metrics of the selected tetrahedron
-  ubyte displayTetraMetrics;         // Flag activating/deactivating the display of the 
-				     // tetrahedron metrics
+  ubyte displayTetraMetrics;         // Flag activating/deactivating the 
+				     // display of the tetrahedron metrics
 
 } Scene;
 typedef Scene * pScene;

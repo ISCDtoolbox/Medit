@@ -20,9 +20,9 @@ typedef unsigned short uShort;
 #define _TETRA_METRICS_H
 
 typedef struct {
-    int id;                // Identifiant du tétraèdre	
-    double quality;        // La qualité du tétraèdre, calculée par la formule tet_quality
-    double edgeLengths[6]; // Les longueurs des 6 arêtes du tétraèdre
+    int id;                // Id of the tetrahedron	
+    double quality;        // Quality of the tetrahedron, with tet_quality
+    double edgeLengths[6]; // The lengths of the 6 tetrahedron edges
 } TetraMetrics;
 
 #endif

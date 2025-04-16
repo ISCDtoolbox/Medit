@@ -17,7 +17,7 @@ void displayTetraMetrics(pScene sc) {
     glMatrixMode(GL_PROJECTION);
     glPushMatrix();
     glLoadIdentity();
-    // Configuring an orthographic matric
+    // Configuring an orthographic matrix
     gluOrtho2D(0, sc->par.xs, 0, sc->par.ys);
 
     // Saving the matrix MODELVIEW
@@ -55,10 +55,10 @@ void displayTetraMetrics(pScene sc) {
         glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, info[i]);
     }
 
-    // Restauring the matrix MODELVIEW en pop
+    // Restoring the matrix MODELVIEW en pop
     glPopMatrix();
 
-    // Restauring the projection matrix and pulling it out of 2D mode
+    // Restoring the projection matrix and pulling it out of 2D mode
     glMatrixMode(GL_PROJECTION);
     glPopMatrix();
 

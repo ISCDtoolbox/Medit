@@ -477,22 +477,22 @@ int meshUpdate(pScene sc,pMesh mesh) {
   return(1);
 }
 
-// tolérance pour éviter une division par zéro
+// tolerance to prevent a division by zero
 static const double epsd2 = 1e-12;
 
 TetraMetrics compute_mesh_quality_edges_length(pMesh mesh, int tetraIndex) {
     TetraMetrics metrics;
     
-    // Accès au tétraèdre ciblé
+    // Accessing the targeted tetrahedron
     pTetra tet = &mesh->tetra[tetraIndex];
     
-    // Récupérer les 4 points constituants du tétraèdre
+    // Getting the 4 points forming the tetrahedron
     pPoint p1 = &mesh->point[tet->v[0]];
     pPoint p2 = &mesh->point[tet->v[1]];
     pPoint p3 = &mesh->point[tet->v[2]];
     pPoint p4 = &mesh->point[tet->v[3]];
     
-    // Calculer les 6 longueurs d'arêtes
+    // Computing the 6 edge lengths
     double d12 = sqrt(pow(p2->c[0] - p1->c[0], 2) +
                       pow(p2->c[1] - p1->c[1], 2) +
                       pow(p2->c[2] - p1->c[2], 2));
@@ -512,7 +512,7 @@ TetraMetrics compute_mesh_quality_edges_length(pMesh mesh, int tetraIndex) {
                       pow(p4->c[1] - p3->c[1], 2) +
                       pow(p4->c[2] - p3->c[2], 2));
     
-    // Stocker les longueurs d'arêtes dans la structure
+    // Storing the 6 edge lengths in our structure
     metrics.edgeLengths[0] = d12;
     metrics.edgeLengths[1] = d13;
     metrics.edgeLengths[2] = d14;
@@ -520,7 +520,7 @@ TetraMetrics compute_mesh_quality_edges_length(pMesh mesh, int tetraIndex) {
     metrics.edgeLengths[4] = d24;
     metrics.edgeLengths[5] = d34;
     
-    // Calcul du volume à partir de 3 vecteurs issus du point p1 :
+    // Computing the volume using 3 arrays coming from the point p1 :
     // ab = p2 - p1, ac = p3 - p1, ad = p4 - p1
     double ab[3] = { p2->c[0] - p1->c[0],
                      p2->c[1] - p1->c[1],
@@ -532,33 +532,34 @@ TetraMetrics compute_mesh_quality_edges_length(pMesh mesh, int tetraIndex) {
                      p4->c[1] - p1->c[1],
                      p4->c[2] - p1->c[2] };
     
-    // Calcul du produit vectoriel (ac x ad)
+    // Computing the cross product (ac x ad)
     double cross[3] = {
         ac[1]*ad[2] - ac[2]*ad[1],
         ac[2]*ad[0] - ac[0]*ad[2],
         ac[0]*ad[1] - ac[1]*ad[0]
     };
     
-    // Calcul du produit scalaire (ab · (ac x ad)) pour obtenir 6*Volume
+    // Computing the scalar product (ab · (ac x ad)) to get the 6*Volume
     double vol6 = ab[0]*cross[0] + ab[1]*cross[1] + ab[2]*cross[2];
     
-    // Vérifier que le volume n'est pas trop petit (pour éviter la division par zéro)
+    // Verifying the volume is not too small 
+    // (to prevent the division by zero)
     if(fabs(vol6) < epsd2) {
         metrics.quality = 0.0;
         return metrics;
     }
     
-    // Calculer S = somme des carrés des longueurs d'arête
+    // Computing S = sum of the squared edge lengths
     double S = d12*d12 + d13*d13 + d14*d14 + d23*d23 + d24*d24 + d34*d34;
     if(S < epsd2) {
         metrics.quality = 0.0;
         return metrics;
     }
     
-    // Calcul de la qualité selon la formule modifiée :
-    // Pour un tétraèdre régulier de longueur d'arête l, 
-    // le rapport calculé est 1/(12sqrt(3)), on multiplie 
-    // par 12sqrt(3) pour obtenir 1.
+    // Computing the quality with respect to the modified formula :
+    // For a regular tetrahedron of edge length l, 
+    // The ratio computed is 1/(12sqrt(3)), we multiply 
+    // by 12sqrt(3) to obtain 1.
     metrics.quality = (vol6 * (12 * sqrt(3))) / (S * sqrt(S));  
 
     return metrics;
