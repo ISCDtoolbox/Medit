@@ -164,10 +164,6 @@ void mouse(int button,int state,int x,int y) {
 	      // Picking mode for computing tetrahedron metrics using SHIFT.
 	      picking = GL_TRUE;
 
-	      printf("\n=================================================\n");
-	      printf("===== SHIFT Mode Activated: Picking Attempt =====\n");
-	      printf("=================================================\n");
-
 	      // Clean up any previous display list
 	      if ( sc->picklist ) glDeleteLists(sc->picklist,1);
               
@@ -183,8 +179,6 @@ void mouse(int button,int state,int x,int y) {
 		      sc->displayTetraMetrics = 1;
 		      
 		      // Print the computed metrics
-		      printf("\n====================== Tetrahedron Metrics ===================\n");
-		      printf("Tetrahedron %d:\n", tetIndex);
 		      printf("  Quality: %g\n", metrics.quality);
 		      printf("  Edge Lengths: %.5g, %.5g, %.5g, %.5g, %.5g, %.5g\n",
 				      metrics.edgeLengths[0],
@@ -193,21 +187,16 @@ void mouse(int button,int state,int x,int y) {
 				      metrics.edgeLengths[3],
 				      metrics.edgeLengths[4],
 				      metrics.edgeLengths[5]);
-		      printf("==============================================================\n");
 	      } else {
 		      sc->displayTetraMetrics = 0;
 		      
-		      printf("\n---------------------------------------------\n");
-		      printf("No tetrahedron object selected.\n");
-		      printf("---------------------------------------------\n");                      
 		      // Optional, cleanup the display list if needed
 		      if (sc->picklist) {
 			      //glDeleteLists(sc->picklist, 1);
 			      //sc->picklist = pickingScene(sc,x,y,0);
 		      }	   
-
-		      return;
 	      }      
+	      return;
 	
       }
       else if ( keyact & GLUT_ACTIVE_ALT ) {
