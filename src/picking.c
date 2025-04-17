@@ -917,14 +917,7 @@ GLuint pickingScene(pScene sc,int x,int y,int ident) {
 }
 
 int pickingTetrahedron(pScene sc, int x, int y) {	
-    if (sc->picklist == 0) {	
-	// If no display list has been generated, we make a classic call    
-	GLuint dlist = pickingScene(sc, x, y, 0);
-	if (dlist == 0){
-	    sc->displayTetraMetrics = 0;	
-	    return -1; // No element has been selected
-	}
-    }
+
 
     // reftype/refitem have just been updated
     if ( reftype == LTets ){
