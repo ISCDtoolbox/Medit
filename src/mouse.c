@@ -169,35 +169,8 @@ void mouse(int button,int state,int x,int y) {
               
 	      // Create a new display list to highlight the selected object
 	      sc->picklist = pickingScene(sc,x,y,0);
-	      
-	      int tetIndex = pickingTetrahedron(sc, x, y); 
-
-	      if (tetIndex > 0) {
-		      TetraMetrics metrics = compute_mesh_quality_edges_length(cv.mesh[sc->idmesh], tetIndex);
-		      metrics.id = tetIndex;
-		      sc->currentTetraMetrics = metrics;
-		      sc->displayTetraMetrics = 1;
-		      
-		      // Print the computed metrics
-		      printf("  Quality: %g\n", metrics.quality);
-		      printf("  Edge Lengths: %.5g, %.5g, %.5g, %.5g, %.5g, %.5g\n",
-				      metrics.edgeLengths[0],
-				      metrics.edgeLengths[1],
-				      metrics.edgeLengths[2],
-				      metrics.edgeLengths[3],
-				      metrics.edgeLengths[4],
-				      metrics.edgeLengths[5]);
-	      } else {
-		      sc->displayTetraMetrics = 0;
-		      
-		      // Optional, cleanup the display list if needed
-		      if (sc->picklist) {
-			      //glDeleteLists(sc->picklist, 1);
-			      //sc->picklist = pickingScene(sc,x,y,0);
-		      }	   
-	      }      
 	      return;
-	
+
       }
       else if ( keyact & GLUT_ACTIVE_ALT ) {
 	    	/* zoom */
