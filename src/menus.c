@@ -265,7 +265,7 @@ void keyFile(unsigned char key,int x,int y) {
       sprintf(data,"%s.%.3d",data,nfree);
     }
     else
-      sprintf(data,"%s.ppm",data);
+	  strcat(data,".ppm");
     if (!saveimg )  glutSetCursor(GLUT_CURSOR_WAIT);
     if ( key == 'B' || key == 'C' || key == 'G' )
       imgTiling(sc,data,key);
