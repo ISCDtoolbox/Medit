@@ -853,9 +853,14 @@ int createScene(pScene sc,int idmesh) {
   }
   sc->par.sunpos[3] = 1.0;
 
-  /* create window */
+  /* create window: It can be important for some users to set a
+     recognizable window title immediately, so that the window manager
+     sees it upon window creation and will be able to apply
+     application-specific user configurations on it. For example FVWM
+     Styles. In particular, FVWM only looks at it when the window is
+     created or when FVWM itself restarts. */
   glutInitWindowSize(sc->par.xs,sc->par.ys);
-  sc->idwin = glutCreateWindow("");
+  sc->idwin = glutCreateWindow("Medit");
   assert(sc->idwin != 0);
   if ( fullscreen ) {
     glutFullScreen();
