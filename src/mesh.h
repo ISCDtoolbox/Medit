@@ -16,6 +16,17 @@ typedef unsigned short uShort;
 #endif
 
 
+#ifndef _TETRA_METRICS_H
+#define _TETRA_METRICS_H
+
+typedef struct {
+    int id;                // Id of the tetrahedron	
+    double quality;        // Quality of the tetrahedron, with tet_quality
+    double edgeLengths[6]; // The lengths of the 6 tetrahedron edges
+} TetraMetrics;
+
+#endif
+
 typedef struct spoint {
   double    c[3];
   int       tmp,mark;

@@ -1,7 +1,7 @@
 #include "medit.h"
 #include "extern.h"
 #include "sproto.h"
-
+#include "mesh.h"
 
 typedef struct color {
   GLuint  rMask,gMask,bMask,aMask;
@@ -899,6 +899,7 @@ GLuint pickingScene(pScene sc,int x,int y,int ident) {
     case LTets:
       drawTets(sc,mesh,refitem);
       infoEntity(sc,mesh,refitem,LTets);
+      pickingTetrahedron(sc, x, y);
       break;
     case LHexa:
       drawHexa(sc,mesh,refitem);
@@ -915,6 +916,38 @@ GLuint pickingScene(pScene sc,int x,int y,int ident) {
   return(dlist); 
 }
 
+int pickingTetrahedron(pScene sc, int x, int y) {	
+
+
+    // reftype/refitem have just been updated
+    if ( reftype == LTets ){
+	int tetIndex = refitem; 
+
+	// Computing and storing the metrics
+	TetraMetrics metrics = compute_mesh_quality_edges_length(cv.mesh[sc->idmesh], tetIndex);
+	metrics.id = tetIndex;
+	sc->currentTetraMetrics = metrics;
+	sc->displayTetraMetrics = 1;
+
+	// Print the computed metrics in the shell
+	printf("  Quality: %g\n", metrics.quality);
+	printf("  Edge Lengths: %.5g, %.5g, %.5g, %.5g, %.5g, %.5g\n",
+			metrics.edgeLengths[0],
+			metrics.edgeLengths[1],
+			metrics.edgeLengths[2],
+			metrics.edgeLengths[3],
+			metrics.edgeLengths[4],
+			metrics.edgeLengths[5]);
+
+	return tetIndex;
+
+    }      
+
+    // Not a tetrahedron
+    sc->displayTetraMetrics = 0;
+    return -1;
+
+}
 
 GLuint pickItem(pMesh mesh,pScene sc,int numit) {
   pMaterial  pm;

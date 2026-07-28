@@ -1,6 +1,7 @@
 #include "medit.h"
 #include "extern.h"
 #include "sproto.h"
+#include "mesh.h" 
 
 #define FLOAT_MAX  1.e20
 ubyte   dosurf;
@@ -475,3 +476,92 @@ int meshUpdate(pScene sc,pMesh mesh) {
 
   return(1);
 }
+
+// tolerance to prevent a division by zero
+static const double epsd2 = 1e-12;
+
+TetraMetrics compute_mesh_quality_edges_length(pMesh mesh, int tetraIndex) {
+    TetraMetrics metrics;
+    
+    // Accessing the targeted tetrahedron
+    pTetra tet = &mesh->tetra[tetraIndex];
+    
+    // Getting the 4 points forming the tetrahedron
+    pPoint p1 = &mesh->point[tet->v[0]];
+    pPoint p2 = &mesh->point[tet->v[1]];
+    pPoint p3 = &mesh->point[tet->v[2]];
+    pPoint p4 = &mesh->point[tet->v[3]];
+    
+    // Computing the 6 edge lengths
+    double d12 = sqrt(pow(p2->c[0] - p1->c[0], 2) +
+                      pow(p2->c[1] - p1->c[1], 2) +
+                      pow(p2->c[2] - p1->c[2], 2));
+    double d13 = sqrt(pow(p3->c[0] - p1->c[0], 2) +
+                      pow(p3->c[1] - p1->c[1], 2) +
+                      pow(p3->c[2] - p1->c[2], 2));
+    double d14 = sqrt(pow(p4->c[0] - p1->c[0], 2) +
+                      pow(p4->c[1] - p1->c[1], 2) +
+                      pow(p4->c[2] - p1->c[2], 2));
+    double d23 = sqrt(pow(p3->c[0] - p2->c[0], 2) +
+                      pow(p3->c[1] - p2->c[1], 2) +
+                      pow(p3->c[2] - p2->c[2], 2));
+    double d24 = sqrt(pow(p4->c[0] - p2->c[0], 2) +
+                      pow(p4->c[1] - p2->c[1], 2) +
+                      pow(p4->c[2] - p2->c[2], 2));
+    double d34 = sqrt(pow(p4->c[0] - p3->c[0], 2) +
+                      pow(p4->c[1] - p3->c[1], 2) +
+                      pow(p4->c[2] - p3->c[2], 2));
+    
+    // Storing the 6 edge lengths in our structure
+    metrics.edgeLengths[0] = d12;
+    metrics.edgeLengths[1] = d13;
+    metrics.edgeLengths[2] = d14;
+    metrics.edgeLengths[3] = d23;
+    metrics.edgeLengths[4] = d24;
+    metrics.edgeLengths[5] = d34;
+    
+    // Computing the volume using 3 arrays coming from the point p1 :
+    // ab = p2 - p1, ac = p3 - p1, ad = p4 - p1
+    double ab[3] = { p2->c[0] - p1->c[0],
+                     p2->c[1] - p1->c[1],
+                     p2->c[2] - p1->c[2] };
+    double ac[3] = { p3->c[0] - p1->c[0],
+                     p3->c[1] - p1->c[1],
+                     p3->c[2] - p1->c[2] };
+    double ad[3] = { p4->c[0] - p1->c[0],
+                     p4->c[1] - p1->c[1],
+                     p4->c[2] - p1->c[2] };
+    
+    // Computing the cross product (ac x ad)
+    double cross[3] = {
+        ac[1]*ad[2] - ac[2]*ad[1],
+        ac[2]*ad[0] - ac[0]*ad[2],
+        ac[0]*ad[1] - ac[1]*ad[0]
+    };
+    
+    // Computing the scalar product (ab · (ac x ad)) to get the 6*Volume
+    double vol6 = ab[0]*cross[0] + ab[1]*cross[1] + ab[2]*cross[2];
+    
+    // Verifying the volume is not too small 
+    // (to prevent the division by zero)
+    if(fabs(vol6) < epsd2) {
+        metrics.quality = 0.0;
+        return metrics;
+    }
+    
+    // Computing S = sum of the squared edge lengths
+    double S = d12*d12 + d13*d13 + d14*d14 + d23*d23 + d24*d24 + d34*d34;
+    if(S < epsd2) {
+        metrics.quality = 0.0;
+        return metrics;
+    }
+    
+    // Computing the quality with respect to the modified formula :
+    // For a regular tetrahedron of edge length l, 
+    // The ratio computed is 1/(12sqrt(3)), we multiply 
+    // by 12sqrt(3) to obtain 1.
+    metrics.quality = (vol6 * (12 * sqrt(3))) / (S * sqrt(S));  
+
+    return metrics;
+}
+

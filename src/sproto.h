@@ -143,6 +143,8 @@ void   meshCoord(pMesh ,int );
 void   meshBox(pMesh mesh,int bb);
 void   meshRef(pScene sc,pMesh mesh);
 int    meshUpdate(pScene sc,pMesh mesh);
+TetraMetrics compute_mesh_quality_edges_length(pMesh mesh, int tetraIndex);
+
 
 /* mlists.c */
 GLuint  listTriaMap(pScene ,pMesh );
@@ -165,6 +167,7 @@ void   redrawOverlay(int stretchX,int stretchY);
 void   motionCamera(int x,int y);
 void   mouseCamera(int button,int state,int x,int y);
 void   animateCamera();
+extern int reftype;
 
 /* normal.c */
 GLuint drawNormals(pMesh mesh,pScene sc);
@@ -202,6 +205,7 @@ GLuint pickingList(pScene ,int ,int );
 GLuint pickingPoint(pScene sc,int x,int y);
 GLuint pickItem(pMesh ,pScene ,int );
 GLuint pickingScene(pScene sc,int x,int y,int ident);
+int pickingTetrahedron(pScene sc, int x, int y);
  
 /* prierr.c */
 void   prierr(int typerr,int indice);
@@ -226,6 +230,7 @@ void   deleteScene(pScene sc);
 void   initGrafix(pScene sc,pMesh mesh);
 int    createScene(pScene sc,int idmesh);
 void   streamIdle();
+void displayTetraMetrics(pScene sc);
 
 /* scissor.c */
 void   scissorScene();

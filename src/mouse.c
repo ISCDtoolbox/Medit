@@ -1,6 +1,7 @@
 #include "medit.h"
 #include "extern.h"
 #include "sproto.h"
+#include "mesh.h"
 	
 #ifndef  ON
 #define  ON     1
@@ -150,20 +151,26 @@ void mouse(int button,int state,int x,int y) {
   tr->mstate  = state;
   tr->mbutton = button;
 
-  /* check if ctrl-shift-alt pressed */
+  /* check the actions on the keys */
   keyact = glutGetModifiers();
 
   if ( state == GLUT_DOWN ) {
     tracking = GL_TRUE;
     lasttime = glutGet(GLUT_ELAPSED_TIME);
 
+  /* check if shift+click pressed */
     if ( button == GLUT_LEFT_BUTTON ) {
       if ( keyact & GLUT_ACTIVE_SHIFT ) {
-        /* entity designation */
-        picking = GL_TRUE;
-				if ( sc->picklist ) glDeleteLists(sc->picklist,1);
-				sc->picklist = pickingScene(sc,x,y,0);
-				return;
+	      // Picking mode for computing tetrahedron metrics using SHIFT.
+	      picking = GL_TRUE;
+
+	      // Clean up any previous display list
+	      if ( sc->picklist ) glDeleteLists(sc->picklist,1);
+              
+	      // Create a new display list to highlight the selected object
+	      sc->picklist = pickingScene(sc,x,y,0);
+	      return;
+
       }
       else if ( keyact & GLUT_ACTIVE_ALT ) {
 	    	/* zoom */
