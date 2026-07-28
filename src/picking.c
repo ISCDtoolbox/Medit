@@ -824,7 +824,7 @@ GLuint pickingScene(pScene sc,int x,int y,int ident) {
 
   /* process color */
   glReadBuffer(GL_BACK_LEFT);
-  glReadPixels(x,viewport[3]-y,1,1,
+  glReadPixels(scale*x,viewport[3]-scale*y,1,1,
                GL_RGBA,GL_UNSIGNED_BYTE,(void *)pixel);
   glDrawBuffer(GL_BACK_LEFT);
 
@@ -865,7 +865,7 @@ GLuint pickingScene(pScene sc,int x,int y,int ident) {
   /* peculiar case: vertex */
   if ( refitem > 0 && ident == LPoint ) {
     if ( mesh->ne ) {
-      refitem = closestPoint(sc,mesh,x,y,refitem,reftype);
+      refitem = closestPoint(sc,mesh,scale*x,scale*y,refitem,reftype);
       reftype = LPoint;
     }
   }

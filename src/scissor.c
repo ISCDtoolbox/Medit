@@ -18,7 +18,7 @@ void scissorScene() {
   p    = sc->persp; 
 
   /* subdivide main window */
-  glViewport(0,0,sc->par.xs,sc->par.ys);
+  glViewport(0,0,scale*sc->par.xs,scale*sc->par.ys);
   glMatrixMode(GL_PROJECTION);
   glLoadIdentity();
   gluOrtho2D(0,sc->par.xs,0,sc->par.ys);
@@ -50,8 +50,8 @@ void scissorScene() {
   glEnable(GL_SCISSOR_TEST);
 
   /* draw top right : normal */
-  glViewport(width,height,width,height);
-  glScissor(width,height,width,height);
+  glViewport(scale*width,scale*height,scale*width,scale*height);
+  glScissor(scale*width,scale*height,scale*width,scale*height);
   farclip(1);
 
   glMatrixMode(GL_MODELVIEW);
@@ -64,8 +64,8 @@ void scissorScene() {
   if ( sc->type & S_DECO )  redrawStatusBar(sc);
 
   /* draw top left : top view */
-  glViewport(0,height,width,height);
-  glScissor(0,height,width,height);
+  glViewport(0,scale*height,scale*width,scale*height);
+  glScissor(0,scale*height,scale*width,scale*height);
   farclip(1);
 
   glMatrixMode(GL_MODELVIEW);
@@ -78,8 +78,8 @@ void scissorScene() {
   drawModel(sc);
 
   /* draw bottom left : front */
-  glViewport(0,0,width,height);
-  glScissor(0,0,width,height);
+  glViewport(0,0,scale*width,scale*height);
+  glScissor(0,0,scale*width,scale*height);
   farclip(1);
 
   glMatrixMode(GL_MODELVIEW);
@@ -92,8 +92,8 @@ void scissorScene() {
   drawModel(sc);
 
   /* draw bottom right : right */
-  glViewport(width,0,width,height);
-  glScissor(width,0,width,height);
+  glViewport(scale*width,0,scale*width,scale*height);
+  glScissor(scale*width,0,scale*width,scale*height);
   farclip(1);
 
   glMatrixMode(GL_MODELVIEW);
@@ -107,7 +107,7 @@ void scissorScene() {
 
   glutSwapBuffers();
   glDisable(GL_SCISSOR_TEST);
-  glViewport(0,0,sc->par.xs,sc->par.ys);
+  glViewport(0,0,scale*sc->par.xs,scale*sc->par.ys);
  
   if ( saveimg ) keyFile('H',0,0);
 }

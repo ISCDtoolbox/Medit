@@ -25,6 +25,7 @@ void usage() {
   fprintf(stdout,"\n** Graphic options\n");
   fprintf(stdout,"-a start stop\t Animation sequence\n");
   fprintf(stdout,"-m  Morphing\n");
+  fprintf(stdout,"-r  Retina h-dpi mode\n");
   fprintf(stdout,"-xv width height\t Visual Schnauzer\n");
   fprintf(stdout,"-stereo\t Stereo mode\n");     
   fprintf(stdout,"\n");
@@ -58,6 +59,8 @@ int parsar(int argc,char *argv[]) {
       option = MORPHING;
     else if ( !strcmp(argv[i],"-iso") )
       option = ISOSURF;
+    else if ( !strcmp(argv[i],"-r") )
+      scale = 2;
     else if ( !strcmp(argv[i],"-stereo") )
       stereoMode = LEFT+RIGHT;
     else if ( !strcmp(argv[i],"-s") )

@@ -101,7 +101,7 @@ void reshapeScene(int width,int height) {
   sc->par.xs = width;
   sc->par.ys = height;
 
-  glViewport(0,0,width,height);
+  glViewport(0,0,scale*width,scale*height);
   farclip(GL_TRUE);
 }
 
